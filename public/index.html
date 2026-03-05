@@ -2,66 +2,58 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>MATRIX OS | SECURITY SHIELD</title>
+    <title>MATRIX OS | ULTIMATE DEFENSE</title>
     <style>
-        body { background:#000; color:#0f0; font-family:monospace; margin:0; display:flex; justify-content:center; align-items:center; height:100vh; }
-        #monitor { width:85%; max-width:1000px; border:2px solid #0f0; padding:25px; background:rgba(0,15,0,0.9); box-shadow:0 0 30px #0f0; }
-        .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:20px; margin-top:20px; }
-        .card { border:1px solid #0f0; padding:20px; position:relative; }
-        .val { font-size:45px; color:#fff; text-shadow:0 0 10px #0f0; }
-        .alert { color:#f00; border-color:#f00; box-shadow:0 0 15px #f00; }
-        #logs { font-size:12px; height:80px; overflow-y:auto; color:#ff4444; border-top:1px solid #333; margin-top:10px; }
+        body { background:#000; color:#0f0; font-family:'Courier New', monospace; margin:0; overflow:hidden; }
+        .container { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
+        .monitor { width:80%; border:2px solid #0f0; padding:30px; background:rgba(0,20,0,0.8); box-shadow: 0 0 20px #0f0; }
+        .grid { display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:20px; }
+        .card { border:1px solid #0f0; padding:15px; text-align:center; }
+        .val { font-size:50px; font-weight:bold; color:#fff; }
+        .warn { color:#f00 !important; border-color:#f00 !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
-    <div id="monitor">
-        <h1 style="text-align:center; text-transform:uppercase; letter-spacing:10px;">System Live Status</h1>
-        <div class="grid">
-            <div class="card">
-                <div>REAL-TIME TRAFFIC</div>
-                <div class="val" id="on_val">0</div>
-                <div style="font-size:10px">Status: <span id="status_val">Checking...</span></div>
-            </div>
-            <div class="card alert" id="firewall_card">
-                <div style="color:#f00">DDOS INTERCEPTED</div>
-                <div class="val" id="blocked_val" style="color:#f00">0</div>
-                <div style="font-size:10px">Target: <span id="my_ip_val" style="color:#ff0">...</span></div>
-            </div>
-            <div class="card">
-                <div>HARDWARE LOAD</div>
-                <div>CPU: <span id="cpu_val">0</span>%</div>
-                <div>RAM: <span id="ram_val">0</span>%</div>
-            </div>
-            <div class="card">
-                <div>THREAT LOGS</div>
-                <div id="logs">Listening for packets...</div>
+    <div class="container">
+        <div class="monitor">
+            <h2 style="letter-spacing:15px; text-align:center;">SYSTEM DEFENSE OVERVIEW</h2>
+            <div class="grid">
+                <div class="card">
+                    <div>REAL-TIME ONLINE</div>
+                    <div class="val" id="on_val">0</div>
+                </div>
+                <div class="card" id="firewall_box">
+                    <div style="color:#f00">CHAOS BLOCKED</div>
+                    <div class="val" id="blocked_val" style="color:#f00">0</div>
+                </div>
+                <div class="card">
+                    <div>SERVER HEALTH</div>
+                    <div>CPU: <span id="cpu_val">0</span>% | RAM: <span id="ram_val">0</span>%</div>
+                </div>
+                <div class="card">
+                    <div>LAST INCIDENT</div>
+                    <div id="log_val" style="font-size:12px; margin-top:10px;">Waiting...</div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        function update() {
+        function refresh() {
             fetch('/api/stats')
             .then(res => res.json())
             .then(d => {
                 document.getElementById('on_val').innerText = d.online;
                 document.getElementById('blocked_val').innerText = d.blocked;
-                document.getElementById('my_ip_val').innerText = d.ip;
                 document.getElementById('cpu_val').innerText = d.cpu;
                 document.getElementById('ram_val').innerText = d.ram;
-                document.getElementById('status_val').innerText = d.status;
-
-                if(d.logs && d.logs.length > 0) {
-                    document.getElementById('logs').innerHTML = d.logs.map(l => 
-                        `<div>[${l.time}] ALERT: ${l.ip} - ${l.type}</div>`
-                    ).join('');
-                }
-            })
-            .catch(() => {
-                document.body.style.backgroundColor = "#200"; // Cảnh báo đỏ khi server sập
-            });
+                document.getElementById('log_val').innerText = `[${d.lastThreat.time}] ${d.lastThreat.type}`;
+                
+                if(d.blocked > 100) document.getElementById('firewall_box').classList.add('warn');
+            }).catch(() => {});
         }
-        setInterval(update, 1000);
+        setInterval(refresh, 1000);
     </script>
 </body>
 </html>
