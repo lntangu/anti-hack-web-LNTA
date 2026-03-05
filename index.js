@@ -2,43 +2,40 @@ const express = require('express');
 const app = express();
 const path = require('path');
 
-// Quản lý trạng thái hệ thống
-let blockedCount = 0;
-let requestLog = [];
+// Biến đếm nằm ngoài để tránh bị reset khi function nóng máy
+let globalBlocked = 0;
 
-// 1. MIDDLEWARE CHẶN TỪ CỬA (GATEKEEPER)
+// 1. LỰC LƯỢNG PHẢN ỨNG NHANH
 app.use((req, res, next) => {
-    const ua = req.headers['user-agent'] || '';
-    const payload = req.headers['x-payload-data']; // Bẫy Payload Bloating
-    const isChaos = ua.includes('Matrix-Breaker') || req.query.data || req.query.t; // Nhận diện Chaos Mode
+    // Tóm gáy script qua Header Payload 2KB hoặc User-Agent
+    const isAttacker = 
+        req.headers['x-payload-data'] || 
+        req.headers['user-agent']?.includes('Matrix-Breaker') ||
+        req.query.data || req.query.t;
 
-    // Nếu phát hiện dấu hiệu của Chaos Engine V22.0
-    if (payload || isChaos) {
-        blockedCount++;
-        // Ngắt kết nối ngay (Mã 444) - Không cho phép script nhồi thêm dữ liệu vào RAM
-        res.setHeader('Connection', 'close');
-        return res.status(444).end(); 
+    if (isAttacker) {
+        globalBlocked++;
+        // Phản hồi cực ngắn để giải phóng kết nối ngay lập tức
+        res.writeHead(444, { 'Connection': 'close' });
+        return res.end();
     }
     next();
 });
 
-// Giới hạn dữ liệu đầu vào cực thấp để chống nhồi URL siêu dài
-app.use(express.json({ limit: '1kb' }));
+// Giới hạn cứng để không cho phép nhồi rác vào Body
+app.use(express.json({ limit: '512b' })); 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 2. API CUNG CẤP DỮ LIỆU DASHBOARD
+// API cực nhẹ, không dùng thêm thư viện hệ thống nào để tiết kiệm CPU
 app.get('/api/stats', (req, res) => {
-    const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
-    
-    // Chỉ trả về JSON cực nhẹ để tránh lỗi 500
-    res.json({
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
         online: 1,
-        blocked: blockedCount,
-        cpu: blockedCount > 500 ? "99.9" : "5.5",
-        ram: "12",
-        status: blockedCount > 1000 ? "CRITICAL ATTACK" : "PROTECTED",
-        logs: [`[${new Date().toLocaleTimeString()}] MITIGATED: ${ip}`]
-    });
+        blocked: globalBlocked,
+        status: globalBlocked > 1000 ? "CRITICAL" : "OPERATIONAL",
+        cpu: "DYNAMIC",
+        ram: "OPTIMIZED"
+    }));
 });
 
 module.exports = app;
