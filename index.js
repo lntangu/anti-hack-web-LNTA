@@ -3,7 +3,8 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
     cors: { origin: "*" },
-    transports: ['websocket', 'polling']
+    // Cấu hình này giúp sửa lỗi 400 bằng cách ưu tiên polling
+    transports: ['polling', 'websocket'] 
 });
 const path = require('path');
 const os = require('os');
@@ -26,11 +27,9 @@ io.on('connection', (socket) => {
     const clientIP = socket.handshake.headers['x-forwarded-for']?.split(',')[0] || socket.conn.remoteAddress;
 
     socket.on('auth_verify', async (token) => {
-        // Nếu là mã tự động bỏ qua từ Client
+        // Cho phép vào ngay nếu là mã khẩn cấp hoặc Cloudflare lỗi
         if (token === "bypass_token_emergency") {
-            socket.emit('init_data', { totalVisitors, attackBlocked, banHistory, clientIP });
-            startStats(socket);
-            return;
+            return grantAccess(socket, clientIP);
         }
 
         try {
@@ -41,20 +40,21 @@ io.on('connection', (socket) => {
             );
 
             if (verifyRes.data.success) {
-                socket.emit('init_data', { totalVisitors, attackBlocked, banHistory, clientIP });
-                startStats(socket);
+                grantAccess(socket, clientIP);
             } else {
+                // Nếu sai token nhưng đã quá 5s thì Client vẫn sẽ gửi mã emergency ở trên
                 socket.disconnect();
             }
         } catch (e) { 
-            // Nếu lỗi API Cloudflare, cho vào luôn cho đỡ kẹt
-            socket.emit('init_data', { totalVisitors, attackBlocked, banHistory, clientIP });
-            startStats(socket);
+            grantAccess(socket, clientIP);
         }
     });
 });
 
-function startStats(socket) {
+function grantAccess(socket, clientIP) {
+    totalVisitors++;
+    socket.emit('init_data', { totalVisitors, attackBlocked, banHistory, clientIP });
+    
     const timer = setInterval(() => {
         socket.emit('sys_update', {
             cpu: (os.loadavg()[0] * 10).toFixed(2),
@@ -62,11 +62,14 @@ function startStats(socket) {
             online: io.engine.clientsCount
         });
     }, 2000);
+    
     socket.on('disconnect', () => clearInterval(timer));
 }
 
+// Cần thiết để Vercel chạy đúng
 module.exports = http;
+
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'production') {
-    http.listen(PORT, () => console.log('Matrix running...'));
+    http.listen(PORT, () => console.log('Matrix System Online'));
 }
