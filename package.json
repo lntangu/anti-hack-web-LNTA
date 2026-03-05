@@ -1,12 +1,7 @@
 {
-  "name": "anti-hack-web",
+  "name": "matrix-defense",
   "version": "1.0.0",
-  "description": "Defense against Chaos Engine V22",
-  "main": "index.js",
   "dependencies": {
     "express": "^4.18.2"
-  },
-  "scripts": {
-    "start": "node index.js"
   }
 }
