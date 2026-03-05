@@ -2,55 +2,69 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>MATRIX OS | DIRECT MONITOR</title>
+    <title>MATRIX OS | 100% REAL DATA</title>
     <style>
         body { background:#000; color:#0f0; font-family:monospace; margin:0; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
         #bg { position:fixed; top:0; left:0; z-index:-1; opacity:0.15; }
         #dash { width:90%; max-width:1000px; }
         .grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:20px; }
-        .card { border:1px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); box-shadow: 0 0 10px rgba(0,255,0,0.2); }
+        .card { border:1px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); }
         .big { font-size:45px; color:#fff; text-shadow:0 0 10px #0f0; }
         .label { font-size:12px; letter-spacing:2px; color:#0f0; margin-bottom:10px; }
-        .logs { font-size:11px; color:#f00; height:100px; overflow:hidden; }
-        .status-bar { text-align:center; margin-bottom:30px; border:1px solid #0f0; padding:10px; background:rgba(0,50,0,0.3); }
+        .logs { font-size:11px; color:#f00; height:100px; overflow-y: auto; }
+        .status { color: #fff; background: #050; padding: 5px; margin-bottom: 20px; text-align: center; border: 1px solid #0f0; }
     </style>
 </head>
 <body>
     <canvas id="bg"></canvas>
 
     <div id="dash">
-        <div class="status-bar">SYSTEM STATUS: <span id="sys-msg">INITIALIZING...</span></div>
+        <div class="status">LIVE SYSTEM MONITOR - NO FAKE DATA</div>
         <div class="grid">
-            <div class="card"><div class="label">REAL-TIME ONLINE</div><div class="big" id="on">1</div><div>Total Visitors: <span id="total-v">0</span></div></div>
-            <div class="card" style="border-color:#f00;"><div class="label" style="color:#f00;">FIREWALL BLOCKED</div><div class="big" id="blocked" style="color:#f00;">0</div><div>Your IP: <span id="myip" style="color:#ff0"></span></div></div>
-            <div class="card"><div class="label">HARDWARE LOAD</div><div>CPU: <span id="cpu">0</span>%</div><div>RAM: <span id="ram">0</span>%</div></div>
-            <div class="card"><div class="label">THREAT HISTORY</div><div id="logs" class="logs"></div></div>
+            <div class="card">
+                <div class="label">LIVE ONLINE</div>
+                <div class="big" id="on">0</div>
+                <div>Total Sessions: <span id="total-v">0</span></div>
+            </div>
+            <div class="card" style="border-color:#f00;">
+                <div class="label" style="color:#f00;">SECURITY EVENTS</div>
+                <div class="big" id="blocked" style="color:#f00;">0</div>
+                <div>Your IP: <span id="myip" style="color:#ff0"></span></div>
+            </div>
+            <div class="card">
+                <div class="label">HARDWARE (VERCEL)</div>
+                <div>CPU LOAD: <span id="cpu">0</span>%</div>
+                <div>RAM USAGE: <span id="ram">0</span>%</div>
+            </div>
+            <div class="card">
+                <div class="label">REAL THREAT LOGS</div>
+                <div id="logs" class="logs">Waiting for events...</div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Hàm lấy dữ liệu thật
-        function updateAll() {
+        function fetchRealData() {
             fetch('/api/stats')
             .then(res => res.json())
-            .then(s => {
-                document.getElementById('sys-msg').innerText = "SECURE CONNECTION ESTABLISHED";
-                document.getElementById('on').innerText = s.online;
-                document.getElementById('total-v').innerText = s.totalVisitors;
-                document.getElementById('blocked').innerText = s.attackBlocked;
-                document.getElementById('myip').innerText = s.clientIP;
-                document.getElementById('cpu').innerText = s.cpu;
-                document.getElementById('ram').innerText = s.ram;
-                document.getElementById('logs').innerHTML = s.logs.map(l => `<div>[${l.time}] BLOCKED: ${l.ip}</div>`).join('');
+            .then(data => {
+                document.getElementById('on').innerText = data.online;
+                document.getElementById('total-v').innerText = data.totalVisitors;
+                document.getElementById('blocked').innerText = data.attackBlocked;
+                document.getElementById('myip').innerText = data.clientIP;
+                document.getElementById('cpu').innerText = data.cpu;
+                document.getElementById('ram').innerText = data.ram;
+                
+                if(data.logs.length > 0) {
+                    document.getElementById('logs').innerHTML = data.logs.map(l => `<div>[${l.time}] ${l.ip}: ${l.reason}</div>`).join('');
+                }
             })
-            .catch(() => {
-                document.getElementById('sys-msg').innerText = "CONNECTION LOST. RETRYING...";
-            });
+            .catch(err => console.error("Connection error"));
         }
 
-        // Chạy ngay lập tức và lặp lại mỗi 2 giây
-        updateAll();
-        setInterval(updateAll, 2000);
+        // Cập nhật mỗi 2 giây
+        setInterval(fetchRealData, 2000);
+        fetchRealData();
 
         // Hiệu ứng Matrix
         const c=document.getElementById('bg'); const x=c.getContext('2d');
