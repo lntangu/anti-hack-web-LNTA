@@ -2,56 +2,46 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>MATRIX OS | IMMORTAL DEFENSE</title>
+    <title>MATRIX OS | IMMORTAL</title>
     <style>
         body { background:#000; color:#0f0; font-family:monospace; margin:0; display:flex; justify-content:center; align-items:center; height:100vh; }
-        .monitor { width:85%; border:2px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); box-shadow:0 0 30px #0f0; }
-        .grid { display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:20px; }
-        .card { border:1px solid #0f0; padding:15px; text-align:center; position:relative; }
-        .val { font-size:42px; color:#fff; font-weight:bold; }
-        .danger { border-color:#f00; color:#f00; }
-        #logs { font-size:11px; color:#ff4444; height:50px; overflow:hidden; margin-top:10px; border-top:1px solid #222; }
+        .monitor { width:80%; border:1px solid #0f0; padding:20px; box-shadow:0 0 20px #0f0; text-align:center; }
+        .val { font-size:50px; color:#fff; display:block; margin:10px 0; }
+        .danger { color:#f00; }
     </style>
 </head>
 <body>
     <div class="monitor">
-        <h2 style="text-align:center; letter-spacing:10px;">SYSTEM DEFENSE OVERVIEW</h2>
-        <div class="grid">
-            <div class="card">
-                <div>REAL-TIME ONLINE</div>
-                <div class="val" id="on_val">0</div>
-            </div>
-            <div class="card danger">
-                <div style="color:#f00">CHAOS BLOCKED</div>
-                <div class="val" id="blocked_val">0</div>
-            </div>
-            <div class="card">
-                <div>HARDWARE LOAD</div>
-                <div style="font-size:14px">CPU: <span id="cpu_val">0</span>% | RAM: <span id="ram_val">0</span>%</div>
-            </div>
-            <div class="card">
-                <div>PROTECTION STATUS</div>
-                <div id="status_val" style="font-weight:bold; color:#0f0">ACTIVE</div>
-            </div>
+        <h2>DEFENSE SYSTEM V3</h2>
+        <div id="stat-board">
+            ONLINE: <span id="on_val" class="val">0</span>
+            <div class="danger">BLOCKED: <span id="blocked_val" class="val">0</span></div>
+            STATUS: <b id="status_val">LOADING...</b>
         </div>
-        <div id="logs">Listening for Chaos Engine packets...</div>
     </div>
 
     <script>
-        function update() {
-            fetch('/api/stats').then(res => res.json()).then(d => {
-                document.getElementById('on_val').innerText = d.online;
-                document.getElementById('blocked_val').innerText = d.blocked;
-                document.getElementById('cpu_val').innerText = d.cpu;
-                document.getElementById('ram_val').innerText = d.ram;
-                document.getElementById('status_val').innerText = d.status;
-                if(d.logs.length > 0) document.getElementById('logs').innerHTML = d.logs[0];
-            }).catch(() => {
-                document.getElementById('status_val').innerText = "NODE CRASHED";
-                document.getElementById('status_val').style.color = "red";
-            });
+        async function fetchStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const d = await res.json();
+                
+                // Fix lỗi null bằng cách kiểm tra element
+                const onEl = document.getElementById('on_val');
+                const blEl = document.getElementById('blocked_val');
+                const stEl = document.getElementById('status_val');
+
+                if (onEl) onEl.innerText = d.online;
+                if (blEl) blEl.innerText = d.blocked;
+                if (stEl) {
+                    stEl.innerText = d.status;
+                    stEl.style.color = d.status === "CRITICAL" ? "red" : "#0f0";
+                }
+            } catch (e) {
+                console.log("Server đang quá tải...");
+            }
         }
-        setInterval(update, 1000);
+        setInterval(fetchStats, 1000);
     </script>
 </body>
 </html>
