@@ -1,11 +1,14 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
+
+// Ép buộc Server CHỈ dùng polling, cấm tuyệt đối nâng cấp lên WebSocket
 const io = require('socket.io')(http, {
     cors: { origin: "*" },
-    transports: ['polling', 'websocket'], // Ưu tiên polling để sửa lỗi 400
-    allowEIO3: true
+    transports: ['polling'], 
+    allowUpgrades: false 
 });
+
 const path = require('path');
 const os = require('os');
 const axios = require('axios');
@@ -27,7 +30,7 @@ io.on('connection', (socket) => {
     const clientIP = socket.handshake.headers['x-forwarded-for']?.split(',')[0] || socket.conn.remoteAddress;
 
     socket.on('auth_verify', async (token) => {
-        // Chấp nhận mã bỏ qua khẩn cấp
+        // Chấp nhận mọi lệnh bypass
         if (token === "bypass_token_emergency") {
             return sendData(socket, clientIP);
         }
@@ -42,8 +45,7 @@ io.on('connection', (socket) => {
             if (res.data.success) {
                 sendData(socket, clientIP);
             } else {
-                // Nếu Cloudflare từ chối nhưng bạn muốn vào luôn, hãy gọi sendData ở đây
-                sendData(socket, clientIP); 
+                sendData(socket, clientIP); // Cloudflare từ chối cũng cho vào để không kẹt
             }
         } catch (e) {
             sendData(socket, clientIP);
