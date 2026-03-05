@@ -14,65 +14,49 @@
         .card { border:1px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); position:relative; }
         .big { font-size:45px; color:#fff; text-shadow:0 0 10px #0f0; }
         .label { font-size:12px; letter-spacing:2px; color:#0f0; margin-bottom:10px; }
-        .logs { font-size:11px; color:#f00; height:100px; overflow:hidden; }
     </style>
 </head>
 <body>
     <canvas id="bg"></canvas>
     <div id="auth-box">
         <h2 style="letter-spacing:10px;">SECURITY CHECK</h2>
-        <p id="status">Bypassing Firewall...</p>
+        <p id="msg">Bypassing Firewall...</p>
         <div class="cf-turnstile" data-sitekey="0x4AAAAAAACmonQdRh5QQd00p" data-callback="onVerify"></div>
     </div>
 
     <div id="dash">
-        <h1 style="text-align:center; letter-spacing:15px; margin-bottom:40px;">MATRIX SYSTEMS MONITOR</h1>
+        <h1 style="text-align:center; letter-spacing:15px;">SYSTEMS MONITOR</h1>
         <div class="grid">
-            <div class="card">
-                <div class="label">Traffic Analytics</div>
-                <div class="big" id="on">0</div>
-                <div>Online / <span id="total-v">0</span> Total</div>
-            </div>
-            <div class="card" style="border-color:#f00;">
-                <div class="label" style="color:#f00;">Firewall Status</div>
-                <div class="big" id="blocked" style="color:#f00;">0</div>
-                <div>Attacks Blocked | IP: <span id="myip" style="color:#ff0"></span></div>
-            </div>
-            <div class="card">
-                <div class="label">Server Hardware</div>
-                <div>CPU Load: <span id="cpu">0</span>%</div>
-                <div>RAM Load: <span id="ram">0</span>%</div>
-            </div>
-            <div class="card"><div class="label">Recent Threats</div><div id="logs" class="logs"></div></div>
+            <div class="card"><div class="label">Online</div><div class="big" id="on">0</div></div>
+            <div class="card"><div class="label">Blocked</div><div class="big" id="bl" style="color:red">0</div></div>
+            <div class="card"><div>CPU: <span id="cpu">0</span>%</div></div>
+            <div class="card"><div>RAM: <span id="ram">0</span>%</div></div>
         </div>
     </div>
 
     <script>
-        const socket = io({ transports: ['websocket', 'polling'] });
-        let isVerified = false;
+        // QUAN TRỌNG: Phải dùng transports: ['polling'] để sửa lỗi 400
+        const socket = io({ transports: ['polling'] });
+        let authDone = false;
 
         function onVerify(token) {
-            if(isVerified) return;
-            isVerified = true;
+            if(authDone) return;
+            authDone = true;
             socket.emit('auth_verify', token);
         }
 
-        // --- CƠ CHẾ TỰ BỎ QUA NẾU LỖI ---
+        // Tự bỏ qua sau 4 giây nếu Cloudflare lỗi (mã 400020)
         setTimeout(() => {
-            if (!isVerified) {
-                console.log("Cloudflare Error detected or timeout. Bypassing...");
-                document.getElementById('status').innerText = "Cloudflare Error. Using Emergency Access...";
-                onVerify("bypass_token_emergency"); // Tự kích hoạt truy cập
+            if (!authDone) {
+                document.getElementById('msg').innerText = "Cloudflare Error. Bypassing...";
+                onVerify("bypass_token_emergency");
             }
-        }, 5000); // Sau 5 giây không thấy Captcha chạy thì tự vào
+        }, 4000);
 
         socket.on('init_data', (d) => {
             document.getElementById('auth-box').style.display = 'none';
             document.getElementById('dash').style.display = 'block';
-            document.getElementById('total-v').innerText = d.totalVisitors;
-            document.getElementById('blocked').innerText = d.attackBlocked;
-            document.getElementById('myip').innerText = d.clientIP;
-            document.getElementById('logs').innerHTML = d.banHistory.map(b => `<div>[${b.time}] BLOCKED: ${b.ip}</div>`).join('');
+            document.getElementById('bl').innerText = d.attackBlocked;
         });
 
         socket.on('sys_update', (s) => {
