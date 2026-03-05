@@ -3,32 +3,34 @@ const app = express();
 
 let blockedCount = 0;
 
-// LỆNH BÀI MỞ KHÓA CSP - DẸP BỎ LỖI ĐỎ
 app.use((req, res, next) => {
+    // THIẾT LẬP LỆNH BÀI MỞ KHÓA CSP - Sửa triệt để lỗi chữ đỏ
     res.setHeader("Content-Security-Policy", "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; style-src * 'unsafe-inline';");
     
-    // Chặn đứng Chaos Engine V22.0
+    // NGUYÊN LÝ CHẶN: Vả chết script Matrix-Breaker/Chaos Engine
     const ua = req.headers['user-agent'] || '';
-    if (ua.includes('Matrix-Breaker')) {
+    if (ua.includes('Matrix-Breaker') || req.headers['x-payload-data']) {
         blockedCount++;
         return res.status(444).end(); 
     }
     next();
 });
 
+// API trả số liệu cho Dashboard
 app.get('/api/stats', (req, res) => {
     res.json({
         online: 1,
         blocked: blockedCount,
-        cpu: (Math.random() * 2 + 5.5).toFixed(1), // Giữ số 5.5%
+        cpu: (Math.random() * 2 + 5.5).toFixed(1), // Giữ thông số 5.5% như ảnh gốc
         ram: 12
     });
 });
 
+// Giao diện Đồ họa Neon chuẩn Matrix
 app.get('/', (req, res) => {
     res.send(`
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <style>
@@ -37,7 +39,7 @@ app.get('/', (req, res) => {
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
         .card { border: 1px solid #0f0; padding: 20px; text-align: center; background: rgba(0, 40, 0, 0.2); }
         .danger { border: 1px solid #f00; color: #f00; box-shadow: 0 0 15px #f00; }
-        .val { font-size: 55px; color: #fff; text-shadow: 0 0 15px #0f0; font-weight: bold; }
+        .val { font-size: 60px; color: #fff; text-shadow: 0 0 15px #0f0; font-weight: bold; }
         .danger .val { text-shadow: 0 0 15px #f00; }
         h1 { text-align: center; letter-spacing: 12px; text-transform: uppercase; text-shadow: 0 0 10px #0f0; margin: 0; }
         .scanline { width: 100%; height: 4px; background: rgba(0, 255, 0, 0.1); position: absolute; top: 0; left: 0; animation: scan 4s linear infinite; pointer-events: none; }
@@ -54,7 +56,7 @@ app.get('/', (req, res) => {
                 <div class="val" id="on">1</div>
             </div>
             <div class="card danger">
-                <div style="font-size: 12px; letter-spacing: 2px; color: #f00;">DDOS INTERCEPTED</div>
+                <div style="font-size: 12px; letter-spacing: 2px;">DDOS INTERCEPTED</div>
                 <div class="val" id="bl">0</div>
             </div>
             <div class="card" style="text-align: left;">
@@ -64,7 +66,7 @@ app.get('/', (req, res) => {
             </div>
             <div class="card" style="text-align: left;">
                 <div style="font-size: 12px;">THREAT LOGS</div>
-                <div id="logs" style="color: #8f8; font-size: 11px; margin-top: 5px;">[SYSTEM] SECURE</div>
+                <div id="logs" style="color: #8f8; font-size: 11px; margin-top: 5px;">[SECURE] NO THREATS</div>
             </div>
         </div>
     </div>
@@ -75,7 +77,7 @@ app.get('/', (req, res) => {
                 document.getElementById('bl').innerText = d.blocked;
                 document.getElementById('cp').innerText = d.cpu + '%';
                 document.getElementById('rm').innerText = d.ram + '%';
-                if(d.blocked > 0) document.getElementById('logs').innerText = "[ALERT] INTRUSION DETECTED!";
+                if(d.blocked > 0) document.getElementById('logs').innerText = "[ALERT] MITIGATING ATTACK...";
             }).catch(() => {});
         }
         setInterval(update, 1000);
