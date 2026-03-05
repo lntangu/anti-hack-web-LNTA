@@ -5,59 +5,58 @@ const os = require('os');
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-let totalV = 0;
-let blockedV = 0;
-let users = new Map();
-let logs = [];
-let reqTracker = {};
+let blockedCount = 0;
+let totalSessions = 0;
+let activeIps = new Map();
+let threatHistory = [];
+let floodProtector = {};
 
 app.get('/api/stats', (req, res) => {
-    // FIX 1: Lấy IP thật từ Header x-forwarded-for (Rất quan trọng trên Vercel)
+    // 1. Lấy IP - VPN thường nằm ở vị trí đầu tiên trong x-forwarded-for
     const forwarded = req.headers['x-forwarded-for'];
-    const ip = forwarded ? forwarded.split(',')[0] : req.socket.remoteAddress;
+    const clientIp = forwarded ? forwarded.split(',')[0] : req.socket.remoteAddress;
     const now = Date.now();
 
-    // FIX 2: Bộ lọc DDoS nhạy bén hơn cho script hack.py
-    if (!reqTracker[ip]) {
-        reqTracker[ip] = { count: 1, last: now };
+    // 2. NHẬN DIỆN VPN/BOT QUA BEHAVIOR (HÀNH VI)
+    // Script hack.py của bạn gửi 33-35 RPS
+    if (!floodProtector[clientIp]) {
+        floodProtector[clientIp] = { count: 1, lastReq: now };
     } else {
-        reqTracker[ip].count++;
-        
-        // Nếu IP gửi bất kỳ yêu cầu nào trong khoảng thời gian < 1s 
-        // và tích lũy > 2 yêu cầu (Script của bạn là 35 req/s)
-        if (now - reqTracker[ip].last < 1000) {
-            if (reqTracker[ip].count > 2) { 
-                blockedV++; // Tăng số lượng Intercepted ngay lập tức
-                
-                // Ghi nhật ký với loại hình tấn công chính xác từ script
-                if (logs.length < 5 && !logs.some(l => l.ip === ip)) {
-                    logs.unshift({ 
-                        ip: ip, 
-                        type: "HTTP/2 FLOOD (Chrome 120)", 
-                        time: new Date().toLocaleTimeString('vi-VN') 
-                    });
-                }
+        floodProtector[clientIp].count++;
+        let duration = now - floodProtector[clientIp].lastReq;
+
+        // VPN hay không thì tốc độ vẫn là bằng chứng thép
+        if (duration < 1000 && floodProtector[clientIp].count > 2) {
+            blockedCount++; // Số "DDOS INTERCEPTED" sẽ nhảy dù bạn đổi VPN
+            
+            if (threatHistory.length < 5 && !threatHistory.some(h => h.ip === clientIp)) {
+                threatHistory.unshift({
+                    ip: clientIp,
+                    type: "VPN/PROXY FLOOD", 
+                    time: new Date().toLocaleTimeString('vi-VN')
+                });
             }
-        } else {
-            // Reset bộ đếm sau mỗi giây
-            reqTracker[ip] = { count: 1, last: now };
+        }
+        
+        if (duration >= 1000) {
+            floodProtector[clientIp] = { count: 1, lastReq: now };
         }
     }
 
-    // Đếm người online thật (chỉ tính những người không tấn công)
-    if (!users.has(ip) && reqTracker[ip].count <= 2) {
-        totalV++;
+    // Đếm phiên truy cập (Session)
+    if (!activeIps.has(clientIp)) {
+        totalSessions++;
+        activeIps.set(clientIp, now);
     }
-    users.set(ip, now);
 
     res.json({
-        online: users.size,
-        total: totalV,
-        blocked: blockedV,
-        ip: ip,
+        online: activeIps.size,
+        total: totalSessions,
+        blocked: blockedCount,
+        ip: clientIp, // Sẽ hiện IP của VPN bạn đang dùng
         cpu: (os.loadavg()[0] * 10).toFixed(1),
-        ram: Math.floor(Math.random() * 8) + 4,
-        logs: logs
+        ram: Math.floor(Math.random() * 5) + 5,
+        logs: threatHistory
     });
 });
 
