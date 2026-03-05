@@ -2,75 +2,57 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>MATRIX OS | REAL-TIME MONITOR</title>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <title>MATRIX OS | DIRECT MONITOR</title>
     <style>
         body { background:#000; color:#0f0; font-family:monospace; margin:0; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
         #bg { position:fixed; top:0; left:0; z-index:-1; opacity:0.15; }
-        #auth-box { border:1px solid #0f0; padding:40px; background:rgba(0,20,0,0.9); text-align:center; box-shadow:0 0 20px #0f0; }
-        #dash { display:none; width:90%; max-width:1000px; }
+        #dash { width:90%; max-width:1000px; }
         .grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:20px; }
-        .card { border:1px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); }
+        .card { border:1px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); box-shadow: 0 0 10px rgba(0,255,0,0.2); }
         .big { font-size:45px; color:#fff; text-shadow:0 0 10px #0f0; }
         .label { font-size:12px; letter-spacing:2px; color:#0f0; margin-bottom:10px; }
         .logs { font-size:11px; color:#f00; height:100px; overflow:hidden; }
+        .status-bar { text-align:center; margin-bottom:30px; border:1px solid #0f0; padding:10px; background:rgba(0,50,0,0.3); }
     </style>
 </head>
 <body>
     <canvas id="bg"></canvas>
-    <div id="auth-box">
-        <h2 style="letter-spacing:10px;">SECURITY CHECK</h2>
-        <p id="msg">Verifying Real-time Connection...</p>
-        <div class="cf-turnstile" data-sitekey="0x4AAAAAAACmonQdRh5QQd00p" data-callback="onVerify"></div>
-    </div>
 
     <div id="dash">
-        <h1 style="text-align:center; letter-spacing:15px; margin-bottom:40px;">SYSTEMS MONITOR</h1>
+        <div class="status-bar">SYSTEM STATUS: <span id="sys-msg">INITIALIZING...</span></div>
         <div class="grid">
-            <div class="card"><div class="label">Real-time Online</div><div class="big" id="on">1</div><div>Total: <span id="total-v">0</span></div></div>
-            <div class="card" style="border-color:#f00;"><div class="label" style="color:#f00;">Firewall Blocked</div><div class="big" id="blocked" style="color:#f00;">0</div><div>Your IP: <span id="myip" style="color:#ff0"></span></div></div>
-            <div class="card"><div class="label">Server Hardware</div><div>CPU: <span id="cpu">0</span>%</div><div>RAM: <span id="ram">0</span>%</div></div>
-            <div class="card"><div class="label">Threat History</div><div id="logs" class="logs"></div></div>
+            <div class="card"><div class="label">REAL-TIME ONLINE</div><div class="big" id="on">1</div><div>Total Visitors: <span id="total-v">0</span></div></div>
+            <div class="card" style="border-color:#f00;"><div class="label" style="color:#f00;">FIREWALL BLOCKED</div><div class="big" id="blocked" style="color:#f00;">0</div><div>Your IP: <span id="myip" style="color:#ff0"></span></div></div>
+            <div class="card"><div class="label">HARDWARE LOAD</div><div>CPU: <span id="cpu">0</span>%</div><div>RAM: <span id="ram">0</span>%</div></div>
+            <div class="card"><div class="label">THREAT HISTORY</div><div id="logs" class="logs"></div></div>
         </div>
     </div>
 
     <script>
-        let authDone = false;
-
-        function onVerify(token) {
-            if(authDone) return;
-            authDone = true;
-            fetch('/api/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token })
-            })
-            .then(res => res.json())
-            .then(d => {
-                if(d.success) {
-                    document.getElementById('auth-box').style.display = 'none';
-                    document.getElementById('dash').style.display = 'block';
-                    document.getElementById('total-v').innerText = d.totalVisitors;
-                    document.getElementById('blocked').innerText = d.attackBlocked;
-                    document.getElementById('myip').innerText = d.clientIP;
-                    setInterval(fetchStats, 2000); // Lấy dữ liệu thật mỗi 2s
-                }
-            });
-        }
-
-        function fetchStats() {
+        // Hàm lấy dữ liệu thật
+        function updateAll() {
             fetch('/api/stats')
             .then(res => res.json())
             .then(s => {
+                document.getElementById('sys-msg').innerText = "SECURE CONNECTION ESTABLISHED";
                 document.getElementById('on').innerText = s.online;
+                document.getElementById('total-v').innerText = s.totalVisitors;
+                document.getElementById('blocked').innerText = s.attackBlocked;
+                document.getElementById('myip').innerText = s.clientIP;
                 document.getElementById('cpu').innerText = s.cpu;
                 document.getElementById('ram').innerText = s.ram;
                 document.getElementById('logs').innerHTML = s.logs.map(l => `<div>[${l.time}] BLOCKED: ${l.ip}</div>`).join('');
+            })
+            .catch(() => {
+                document.getElementById('sys-msg').innerText = "CONNECTION LOST. RETRYING...";
             });
         }
 
-        setTimeout(() => { if (!authDone) onVerify("bypass_token_emergency"); }, 3500);
+        // Chạy ngay lập tức và lặp lại mỗi 2 giây
+        updateAll();
+        setInterval(updateAll, 2000);
 
+        // Hiệu ứng Matrix
         const c=document.getElementById('bg'); const x=c.getContext('2d');
         c.width=window.innerWidth; c.height=window.innerHeight;
         const drops=Array(Math.floor(c.width/16)).fill(1);
@@ -82,7 +64,7 @@
                 if(y*16>c.height&&Math.random()>0.98) drops[i]=0; drops[i]++;
             });
         }
-        setInterval(draw,50);
+        setInterval(draw, 50);
     </script>
 </body>
 </html>
