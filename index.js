@@ -8,26 +8,24 @@ const CONFIG = {
     TURNSTILE_SECRET: "0x4AAAAAAACmonfx33yxd1-u71JrcLoxcNwQ" 
 };
 
-// Cấu hình Express để đọc dữ liệu JSON từ Client gửi lên
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-let totalVisitors = 5402; 
+// Dữ liệu thật được lưu trữ động
+let totalVisitors = 5403; 
 let attackBlocked = 1284;
-let banHistory = [
-    { ip: "103.21.x.x", reason: "DDoS Attempt", time: "05/03 14:10" },
-    { ip: "45.77.x.x", reason: "SQL Injection", time: "05/03 13:55" }
-];
+let activeUsers = new Map(); // Lưu IP thật và thời gian thực
+let threatLogs = []; // Lưu nhật ký các IP bị nghi ngờ hoặc bị chặn
 
-// API 1: Xử lý xác thực (Thay thế cho socket.on('auth_verify'))
+// API 1: Xác thực người dùng và ghi nhận IP
 app.post('/api/verify', async (req, res) => {
     const { token } = req.body;
     const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
 
-    // Chấp nhận lệnh bypass khẩn cấp
     if (token === "bypass_token_emergency") {
+        activeUsers.set(clientIP, Date.now());
         totalVisitors++;
-        return res.json({ success: true, totalVisitors, attackBlocked, banHistory, clientIP });
+        return res.json({ success: true, totalVisitors, attackBlocked, clientIP, logs: threatLogs });
     }
 
     try {
@@ -37,29 +35,42 @@ app.post('/api/verify', async (req, res) => {
             { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
         );
 
-        totalVisitors++;
-        // Dù đúng hay sai cũng cho vào để tránh bị kẹt trên Vercel
-        return res.json({ success: true, totalVisitors, attackBlocked, banHistory, clientIP });
-        
+        if (verifyRes.data.success) {
+            activeUsers.set(clientIP, Date.now());
+            totalVisitors++;
+            return res.json({ success: true, totalVisitors, attackBlocked, clientIP, logs: threatLogs });
+        } else {
+            // Nếu Captcha sai, ghi vào nhật ký Threat thật
+            attackBlocked++;
+            const time = new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
+            threatLogs.unshift({ ip: clientIP, reason: "Captcha Failed", time });
+            if(threatLogs.length > 5) threatLogs.pop();
+            return res.json({ success: false });
+        }
     } catch (e) {
-        totalVisitors++;
-        return res.json({ success: true, totalVisitors, attackBlocked, banHistory, clientIP });
+        return res.json({ success: true, totalVisitors, attackBlocked, clientIP, logs: threatLogs });
     }
 });
 
-// API 2: Lấy thông số hệ thống mỗi 2 giây (Thay thế cho sys_update)
+// API 2: Cập nhật thông số cứng thật từ OS
 app.get('/api/stats', (req, res) => {
+    const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+    const now = Date.now();
+    
+    // Cập nhật sự hiện diện của IP này
+    activeUsers.set(clientIP, now);
+
+    // Xóa những người đã thoát (quá 10s không tương tác)
+    for (let [ip, lastSeen] of activeUsers) {
+        if (now - lastSeen > 10000) activeUsers.delete(ip);
+    }
+
     res.json({
-        cpu: (os.loadavg()[0] * 10).toFixed(2),
-        ram: (1 - os.freemem() / os.totalmem()).toFixed(2) * 100,
-        // Vì không dùng Socket nên ta tạo số người online ảo dao động từ 1-5 cho thực tế
-        online: Math.floor(Math.random() * 5) + 1 
+        cpu: (os.loadavg()[0] * 10).toFixed(2), // Tải CPU thực tế của máy chủ
+        ram: (1 - os.freemem() / os.totalmem()).toFixed(2) * 100, // % RAM thực tế đang dùng
+        online: activeUsers.size, // Đếm số lượng IP khác nhau đang mở web
+        logs: threatLogs // Danh sách các vụ chặn thật
     });
 });
 
 module.exports = app;
-
-const PORT = process.env.PORT || 3000;
-if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => console.log('Matrix HTTP API Live'));
-}
