@@ -1,60 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MATRIX OS | DEFENSE CORE</title>
+    <meta charset="UTF-8">
+    <title>MATRIX OS | FULL DEFENSE</title>
     <style>
-        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; margin: 0; }
-        .wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-        .terminal { width: 90%; max-width: 900px; border: 1px solid #0f0; padding: 20px; background: rgba(0, 15, 0, 0.95); box-shadow: 0 0 40px rgba(0, 255, 0, 0.2); }
-        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 20px 0; }
-        .stat-card { border: 1px solid #030; padding: 15px; background: #010; }
-        .val { font-size: 32px; color: #fff; display: block; }
-        .danger { color: #f00 !important; text-shadow: 0 0 10px #f00; }
-        .log { font-size: 11px; height: 100px; overflow-y: auto; border-top: 1px solid #030; padding-top: 10px; }
+        body { background:#000; color:#0f0; font-family:'Courier New', monospace; margin:0; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
+        .monitor { width:85%; border:2px solid #0f0; padding:30px; background:rgba(0,15,0,0.9); box-shadow:0 0 25px #0f0; position:relative; }
+        .grid { display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:20px; }
+        .card { border:1px solid #0f0; padding:20px; text-align:center; background:rgba(0,40,0,0.3); }
+        .val { font-size:50px; color:#fff; font-weight:bold; text-shadow:0 0 10px #0f0; }
+        .danger { border-color:#f00; color:#f00; }
+        .scanline { width:100%; height:4px; background:rgba(0,255,0,0.1); position:absolute; top:0; left:0; animation:scan 3s linear infinite; pointer-events:none; }
+        @keyframes scan { from { top:0; } to { top:100%; } }
+        h2 { letter-spacing:10px; text-transform:uppercase; text-align:center; margin-top:0; }
     </style>
 </head>
 <body>
-    <div class="wrapper">
-        <div class="terminal">
-            <h1 style="text-align: center; border-bottom: 1px solid #0f0; padding-bottom: 10px;">CORE DEFENSE SYSTEM V22.1</h1>
-            <div class="grid">
-                <div class="stat-card">
-                    <span>ACTIVE USERS</span>
-                    <span class="val" id="on">0</span>
-                </div>
-                <div class="stat-card">
-                    <span class="danger">THREATS NEUTRALIZED</span>
-                    <span class="val danger" id="bl">0</span>
-                </div>
-                <div class="stat-card">
-                    <span>MEMORY LOAD</span>
-                    <span class="val" id="ld">0MB</span>
-                </div>
+    <div class="monitor">
+        <div class="scanline"></div>
+        <h2>System Live Status</h2>
+        <div class="grid">
+            <div class="card">
+                <div>REAL-TIME ONLINE</div>
+                <div class="val" id="on">1</div>
             </div>
-            <div class="log" id="logs">Initializing security layers...</div>
+            <div class="card danger">
+                <div style="color:#f00">DDOS INTERCEPTED</div>
+                <div class="val" id="bl" style="color:#f00">0</div>
+            </div>
+            <div class="card">
+                <div>SERVER LOAD</div>
+                <div style="font-size:14px">CPU: <span id="cp">0</span>% | RAM: <span id="rm">0</span>%</div>
+            </div>
+            <div class="card">
+                <div>THREAT LOGS</div>
+                <div id="st" style="font-size:12px; margin-top:10px; color:#fff">WAITING FOR PACKETS...</div>
+            </div>
         </div>
     </div>
     <script>
-        const logs = document.getElementById('logs');
-        function addLog(msg) {
-            const div = document.createElement('div');
-            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            logs.prepend(div);
-        }
-
-        async function update() {
-            try {
-                const r = await fetch('/api/stats');
-                const d = await r.json();
+        setInterval(() => {
+            fetch('/api/stats').then(r => r.json()).then(d => {
                 document.getElementById('on').innerText = d.online;
                 document.getElementById('bl').innerText = d.blocked;
-                document.getElementById('ld').innerText = d.load;
-                if(d.blocked > 0) addLog(`Intercepted packet from ${d.lastThreat} | ID: ${d.integrity}`);
-            } catch(e) {
-                addLog("CRITICAL: Server is under heavy load!");
-            }
-        }
-        setInterval(update, 1000);
+                document.getElementById('cp').innerText = d.cpu;
+                document.getElementById('rm').innerText = d.ram;
+                document.getElementById('st').innerText = d.status;
+            }).catch(() => {});
+        }, 1000);
     </script>
 </body>
 </html>
