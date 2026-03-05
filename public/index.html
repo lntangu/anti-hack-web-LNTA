@@ -14,6 +14,7 @@
         .card { border:1px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); position:relative; }
         .big { font-size:45px; color:#fff; text-shadow:0 0 10px #0f0; }
         .label { font-size:12px; letter-spacing:2px; color:#0f0; margin-bottom:10px; }
+        .logs { font-size:11px; color:#f00; height:100px; overflow:hidden; line-height:1.5;}
     </style>
 </head>
 <body>
@@ -25,38 +26,42 @@
     </div>
 
     <div id="dash">
-        <h1 style="text-align:center; letter-spacing:15px;">SYSTEMS MONITOR</h1>
+        <h1 style="text-align:center; letter-spacing:15px; margin-bottom:40px;">SYSTEMS MONITOR</h1>
         <div class="grid">
-            <div class="card"><div class="label">Online</div><div class="big" id="on">0</div></div>
-            <div class="card"><div class="label">Blocked</div><div class="big" id="bl" style="color:red">0</div></div>
-            <div class="card"><div>CPU: <span id="cpu">0</span>%</div></div>
-            <div class="card"><div>RAM: <span id="ram">0</span>%</div></div>
+            <div class="card"><div class="label">Traffic Analytics</div><div class="big" id="on">0</div><div>Online / <span id="total-v">0</span> Total</div></div>
+            <div class="card" style="border-color:#f00;"><div class="label" style="color:#f00;">Firewall Status</div><div class="big" id="blocked" style="color:#f00;">0</div><div>IP: <span id="myip" style="color:#ff0"></span></div></div>
+            <div class="card"><div class="label">Server Hardware</div><div>CPU: <span id="cpu">0</span>%</div><div>RAM: <span id="ram">0</span>%</div></div>
+            <div class="card"><div class="label">Recent Threats</div><div id="logs" class="logs"></div></div>
         </div>
     </div>
 
     <script>
-        // QUAN TRỌNG: Phải dùng transports: ['polling'] để sửa lỗi 400
-        const socket = io({ transports: ['polling'] });
+        // Ép buộc Client cấm dùng WebSocket, chỉ dùng polling để tránh Vercel block
+        const socket = io({ transports: ['polling'], upgrade: false });
         let authDone = false;
 
         function onVerify(token) {
             if(authDone) return;
             authDone = true;
+            document.getElementById('msg').innerText = "Access Granted...";
             socket.emit('auth_verify', token);
         }
 
-        // Tự bỏ qua sau 4 giây nếu Cloudflare lỗi (mã 400020)
+        // Tự động bỏ qua Cloudflare sau 3.5 giây nếu bị lỗi
         setTimeout(() => {
             if (!authDone) {
-                document.getElementById('msg').innerText = "Cloudflare Error. Bypassing...";
+                document.getElementById('msg').innerText = "Cloudflare Error. Emergency Override...";
                 onVerify("bypass_token_emergency");
             }
-        }, 4000);
+        }, 3500);
 
         socket.on('init_data', (d) => {
             document.getElementById('auth-box').style.display = 'none';
             document.getElementById('dash').style.display = 'block';
-            document.getElementById('bl').innerText = d.attackBlocked;
+            document.getElementById('total-v').innerText = d.totalVisitors;
+            document.getElementById('blocked').innerText = d.attackBlocked;
+            document.getElementById('myip').innerText = d.clientIP;
+            document.getElementById('logs').innerHTML = d.banHistory.map(b => `<div>[${b.time}] BLOCKED: ${b.ip}</div>`).join('');
         });
 
         socket.on('sys_update', (s) => {
