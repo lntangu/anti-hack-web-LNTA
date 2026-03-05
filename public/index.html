@@ -21,9 +21,10 @@
     <canvas id="bg"></canvas>
     <div id="auth-box">
         <h2 style="letter-spacing:10px;">SECURITY CHECK</h2>
-        <p>Bypassing Firewall...</p>
+        <p id="status">Bypassing Firewall...</p>
         <div class="cf-turnstile" data-sitekey="0x4AAAAAAACmonQdRh5QQd00p" data-callback="onVerify"></div>
     </div>
+
     <div id="dash">
         <h1 style="text-align:center; letter-spacing:15px; margin-bottom:40px;">MATRIX SYSTEMS MONITOR</h1>
         <div class="grid">
@@ -45,9 +46,26 @@
             <div class="card"><div class="label">Recent Threats</div><div id="logs" class="logs"></div></div>
         </div>
     </div>
+
     <script>
         const socket = io({ transports: ['websocket', 'polling'] });
-        function onVerify(token) { socket.emit('auth_verify', token); }
+        let isVerified = false;
+
+        function onVerify(token) {
+            if(isVerified) return;
+            isVerified = true;
+            socket.emit('auth_verify', token);
+        }
+
+        // --- CƠ CHẾ TỰ BỎ QUA NẾU LỖI ---
+        setTimeout(() => {
+            if (!isVerified) {
+                console.log("Cloudflare Error detected or timeout. Bypassing...");
+                document.getElementById('status').innerText = "Cloudflare Error. Using Emergency Access...";
+                onVerify("bypass_token_emergency"); // Tự kích hoạt truy cập
+            }
+        }, 5000); // Sau 5 giây không thấy Captcha chạy thì tự vào
+
         socket.on('init_data', (d) => {
             document.getElementById('auth-box').style.display = 'none';
             document.getElementById('dash').style.display = 'block';
@@ -56,11 +74,13 @@
             document.getElementById('myip').innerText = d.clientIP;
             document.getElementById('logs').innerHTML = d.banHistory.map(b => `<div>[${b.time}] BLOCKED: ${b.ip}</div>`).join('');
         });
+
         socket.on('sys_update', (s) => {
             document.getElementById('on').innerText = s.online;
             document.getElementById('cpu').innerText = s.cpu;
             document.getElementById('ram').innerText = s.ram;
         });
+
         const c=document.getElementById('bg'); const x=c.getContext('2d');
         c.width=window.innerWidth; c.height=window.innerHeight;
         const drops=Array(Math.floor(c.width/16)).fill(1);
