@@ -2,54 +2,56 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>MATRIX OS | ULTIMATE SHIELD</title>
+    <title>MATRIX OS | IMMORTAL DEFENSE</title>
     <style>
-        body { background:#000; color:#0f0; font-family:monospace; margin:0; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
-        .monitor { width:90%; border:2px solid #0f0; padding:20px; background:rgba(0,20,0,0.9); box-shadow:0 0 20px #0f0; }
-        .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:15px; }
-        .box { border:1px solid #0f0; padding:15px; text-align:center; }
-        .val { font-size:40px; color:#fff; text-shadow:0 0 10px #0f0; }
-        .danger { color:#f00 !important; border-color:#f00 !important; }
-        #log-box { font-size:12px; height:60px; overflow:hidden; color:#ff4444; border-top:1px solid #333; margin-top:10px; }
+        body { background:#000; color:#0f0; font-family:monospace; margin:0; display:flex; justify-content:center; align-items:center; height:100vh; }
+        .monitor { width:85%; border:2px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); box-shadow:0 0 30px #0f0; }
+        .grid { display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:20px; }
+        .card { border:1px solid #0f0; padding:15px; text-align:center; position:relative; }
+        .val { font-size:42px; color:#fff; font-weight:bold; }
+        .danger { border-color:#f00; color:#f00; }
+        #logs { font-size:11px; color:#ff4444; height:50px; overflow:hidden; margin-top:10px; border-top:1px solid #222; }
     </style>
 </head>
 <body>
     <div class="monitor">
-        <h2 style="text-align:center; letter-spacing:5px;">SYSTEM DEFENSE ENGINE</h2>
+        <h2 style="text-align:center; letter-spacing:10px;">SYSTEM DEFENSE OVERVIEW</h2>
         <div class="grid">
-            <div class="box">
-                <div>TOTAL TRAFFIC</div>
-                <div class="val" id="total_val">0</div>
+            <div class="card">
+                <div>REAL-TIME ONLINE</div>
+                <div class="val" id="on_val">0</div>
             </div>
-            <div class="box danger">
-                <div style="color:#f00">DDOS BLOCKED</div>
-                <div class="val" id="blocked_val" style="color:#f00">0</div>
+            <div class="card danger">
+                <div style="color:#f00">CHAOS BLOCKED</div>
+                <div class="val" id="blocked_val">0</div>
             </div>
-            <div class="box">
-                <div>HARDWARE STATUS</div>
+            <div class="card">
+                <div>HARDWARE LOAD</div>
                 <div style="font-size:14px">CPU: <span id="cpu_val">0</span>% | RAM: <span id="ram_val">0</span>%</div>
             </div>
-            <div class="box">
-                <div>SYSTEM STATUS</div>
-                <div id="status_val" style="font-weight:bold">STABLE</div>
+            <div class="card">
+                <div>PROTECTION STATUS</div>
+                <div id="status_val" style="font-weight:bold; color:#0f0">ACTIVE</div>
             </div>
         </div>
-        <div id="log-box">Scanning for malicious packets...</div>
+        <div id="logs">Listening for Chaos Engine packets...</div>
     </div>
 
     <script>
-        setInterval(() => {
-            fetch('/api/stats').then(r => r.json()).then(d => {
-                document.getElementById('total_val').innerText = d.total_req;
+        function update() {
+            fetch('/api/stats').then(res => res.json()).then(d => {
+                document.getElementById('on_val').innerText = d.online;
                 document.getElementById('blocked_val').innerText = d.blocked;
                 document.getElementById('cpu_val').innerText = d.cpu;
                 document.getElementById('ram_val').innerText = d.ram;
                 document.getElementById('status_val').innerText = d.status;
-                if(d.logs.length > 0) {
-                    document.getElementById('log-box').innerHTML = `[${d.logs[0].time}] ALERT: ${d.logs[0].type} - Status: Blocking...`;
-                }
-            }).catch(() => {});
-        }, 1000);
+                if(d.logs.length > 0) document.getElementById('logs').innerHTML = d.logs[0];
+            }).catch(() => {
+                document.getElementById('status_val').innerText = "NODE CRASHED";
+                document.getElementById('status_val').style.color = "red";
+            });
+        }
+        setInterval(update, 1000);
     </script>
 </body>
 </html>
