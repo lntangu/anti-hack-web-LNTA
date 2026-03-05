@@ -1,47 +1,60 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>MATRIX OS | IMMORTAL</title>
+    <title>MATRIX OS | DEFENSE CORE</title>
     <style>
-        body { background:#000; color:#0f0; font-family:monospace; margin:0; display:flex; justify-content:center; align-items:center; height:100vh; }
-        .monitor { width:80%; border:1px solid #0f0; padding:20px; box-shadow:0 0 20px #0f0; text-align:center; }
-        .val { font-size:50px; color:#fff; display:block; margin:10px 0; }
-        .danger { color:#f00; }
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; overflow: hidden; margin: 0; }
+        .wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        .terminal { width: 90%; max-width: 900px; border: 1px solid #0f0; padding: 20px; background: rgba(0, 15, 0, 0.95); box-shadow: 0 0 40px rgba(0, 255, 0, 0.2); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin: 20px 0; }
+        .stat-card { border: 1px solid #030; padding: 15px; background: #010; }
+        .val { font-size: 32px; color: #fff; display: block; }
+        .danger { color: #f00 !important; text-shadow: 0 0 10px #f00; }
+        .log { font-size: 11px; height: 100px; overflow-y: auto; border-top: 1px solid #030; padding-top: 10px; }
     </style>
 </head>
 <body>
-    <div class="monitor">
-        <h2>DEFENSE SYSTEM V3</h2>
-        <div id="stat-board">
-            ONLINE: <span id="on_val" class="val">0</span>
-            <div class="danger">BLOCKED: <span id="blocked_val" class="val">0</span></div>
-            STATUS: <b id="status_val">LOADING...</b>
+    <div class="wrapper">
+        <div class="terminal">
+            <h1 style="text-align: center; border-bottom: 1px solid #0f0; padding-bottom: 10px;">CORE DEFENSE SYSTEM V22.1</h1>
+            <div class="grid">
+                <div class="stat-card">
+                    <span>ACTIVE USERS</span>
+                    <span class="val" id="on">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="danger">THREATS NEUTRALIZED</span>
+                    <span class="val danger" id="bl">0</span>
+                </div>
+                <div class="stat-card">
+                    <span>MEMORY LOAD</span>
+                    <span class="val" id="ld">0MB</span>
+                </div>
+            </div>
+            <div class="log" id="logs">Initializing security layers...</div>
         </div>
     </div>
-
     <script>
-        async function fetchStats() {
-            try {
-                const res = await fetch('/api/stats');
-                const d = await res.json();
-                
-                // Fix lỗi null bằng cách kiểm tra element
-                const onEl = document.getElementById('on_val');
-                const blEl = document.getElementById('blocked_val');
-                const stEl = document.getElementById('status_val');
+        const logs = document.getElementById('logs');
+        function addLog(msg) {
+            const div = document.createElement('div');
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logs.prepend(div);
+        }
 
-                if (onEl) onEl.innerText = d.online;
-                if (blEl) blEl.innerText = d.blocked;
-                if (stEl) {
-                    stEl.innerText = d.status;
-                    stEl.style.color = d.status === "CRITICAL" ? "red" : "#0f0";
-                }
-            } catch (e) {
-                console.log("Server đang quá tải...");
+        async function update() {
+            try {
+                const r = await fetch('/api/stats');
+                const d = await r.json();
+                document.getElementById('on').innerText = d.online;
+                document.getElementById('bl').innerText = d.blocked;
+                document.getElementById('ld').innerText = d.load;
+                if(d.blocked > 0) addLog(`Intercepted packet from ${d.lastThreat} | ID: ${d.integrity}`);
+            } catch(e) {
+                addLog("CRITICAL: Server is under heavy load!");
             }
         }
-        setInterval(fetchStats, 1000);
+        setInterval(update, 1000);
     </script>
 </body>
 </html>
