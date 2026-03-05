@@ -1,0 +1,12 @@
+{
+  "name": "matrix-chat-secure",
+  "version": "16.4.0",
+  "main": "index.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}
