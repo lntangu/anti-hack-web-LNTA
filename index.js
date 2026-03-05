@@ -4,29 +4,24 @@ const path = require('path');
 
 let blockedCount = 0;
 
-// MIDDLEWARE BẢO VỆ ĐA TẦNG
 app.use((req, res, next) => {
-    const ua = req.headers['user-agent'] || '';
-    const isBot = req.headers['x-payload-data'] || ua.includes('Matrix-Breaker');
-    
-    if (isBot) {
+    // Chặn đứng Chaos Engine V22 qua Header và Query
+    if (req.headers['x-payload-data'] || req.headers['user-agent']?.includes('Matrix-Breaker') || req.query.data) {
         blockedCount++;
         res.setHeader('Connection', 'close');
-        return res.status(444).end(); 
+        return res.status(444).end();
     }
     next();
 });
 
-// Phục vụ file tĩnh từ thư mục public để giữ đồ họa
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/stats', (req, res) => {
     res.json({
         online: 1,
         blocked: blockedCount,
-        cpu: (Math.random() * 5 + 2).toFixed(1),
-        ram: (Math.random() * 8 + 4).toFixed(1),
-        status: blockedCount > 500 ? "CRITICAL ATTACK" : "SYSTEM SECURE"
+        cpu: (Math.random() * 2).toFixed(1),
+        ram: 6
     });
 });
 
