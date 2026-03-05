@@ -8,14 +8,15 @@
     <style>
         body { background:#000; color:#0f0; font-family:monospace; margin:0; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
         #bg { position:fixed; top:0; left:0; z-index:-1; opacity:0.15; }
-        #auth-box { border:1px solid #0f0; padding:40px; background:rgba(0,20,0,0.9); text-align:center; box-shadow:0 0 20px #0f0; }
-        #dash { display:none; width:90%; max-width:1000px; }
+        #auth-box { border:1px solid #0f0; padding:40px; background:rgba(0,20,0,0.9); text-align:center; box-shadow:0 0 20px #0f0; transition: 0.5s; }
+        #dash { display:none; width:90%; max-width:1000px; animation: fadeIn 1s; }
         .grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:20px; }
         .card { border:1px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); position:relative; }
         .card::before { content:""; position:absolute; top:0; left:0; width:10px; height:10px; border-top:2px solid #0f0; border-left:2px solid #0f0; }
         .big { font-size:45px; color:#fff; text-shadow:0 0 10px #0f0; }
-        .label { font-size:12px; letter-spacing:2px; color:#0f0; margin-bottom:10px; }
-        .logs { font-size:11px; color:#f00; height:100px; overflow:hidden; }
+        .label { font-size:12px; letter-spacing:2px; color:#0f0; margin-bottom:10px; text-transform: uppercase; }
+        .logs { font-size:11px; color:#f00; height:100px; overflow:hidden; line-height: 1.5; }
+        @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
     </style>
 </head>
 <body>
@@ -23,7 +24,7 @@
 
     <div id="auth-box">
         <h2 style="letter-spacing:10px;">SECURITY CHECK</h2>
-        <p>Bypassing Firewall...</p>
+        <p id="status-text">Bypassing Firewall...</p>
         <div class="cf-turnstile" data-sitekey="0x4AAAAAAACmonQdRh5QQd00p" data-callback="onVerify"></div>
     </div>
 
@@ -33,7 +34,7 @@
             <div class="card">
                 <div class="label">Traffic Analytics</div>
                 <div class="big" id="on">0</div>
-                <div>Online / <span id="total-v">0</span> Total Visitors</div>
+                <div>Online Users / <span id="total-v">0</span> Total</div>
             </div>
             <div class="card" style="border-color:#f00;">
                 <div class="label" style="color:#f00;">Firewall Status</div>
@@ -42,11 +43,11 @@
             </div>
             <div class="card">
                 <div class="label">Server Hardware</div>
-                <div>CPU Load: <span id="cpu">0</span>%</div>
-                <div>RAM Load: <span id="ram">0</span>%</div>
+                <div style="margin-bottom:10px;">CPU Load: <span id="cpu">0</span>%</div>
+                <div>RAM Usage: <span id="ram">0</span>%</div>
             </div>
             <div class="card">
-                <div class="label">Recent Threats</div>
+                <div class="label">Recent Threats Log</div>
                 <div id="logs" class="logs"></div>
             </div>
         </div>
@@ -54,35 +55,58 @@
 
     <script>
         const socket = io();
-        function onVerify(token) { socket.emit('auth_verify', token); }
 
+        // Hàm được gọi khi người dùng tích vào Captcha thành công
+        function onVerify(token) {
+            document.getElementById('status-text').innerText = "Access Granted. Initializing...";
+            socket.emit('auth_verify', token);
+        }
+
+        // Nhận dữ liệu khởi tạo từ server
         socket.on('init_data', (d) => {
             document.getElementById('auth-box').style.display = 'none';
             document.getElementById('dash').style.display = 'block';
             document.getElementById('total-v').innerText = d.totalVisitors;
             document.getElementById('blocked').innerText = d.attackBlocked;
             document.getElementById('myip').innerText = d.clientIP;
-            document.getElementById('logs').innerHTML = d.banHistory.map(b => `<div>[${b.time}] BLOCKED: ${b.ip}</div>`).join('');
+            document.getElementById('logs').innerHTML = d.banHistory.map(b => 
+                `<div>[${b.time}] BLOCKED: ${b.ip} -> ${b.reason}</div>`
+            ).join('');
         });
 
+        // Cập nhật thông số hệ thống thời gian thực
         socket.on('sys_update', (s) => {
             document.getElementById('on').innerText = s.online;
             document.getElementById('cpu').innerText = s.cpu;
             document.getElementById('ram').innerText = s.ram;
         });
 
-        const c=document.getElementById('bg'); const x=c.getContext('2d');
-        c.width=window.innerWidth; c.height=window.innerHeight;
-        const drops=Array(Math.floor(c.width/16)).fill(1);
+        // Hiệu ứng Matrix Rain
+        const c = document.getElementById('bg');
+        const x = c.getContext('2d');
+        c.width = window.innerWidth;
+        c.height = window.innerHeight;
+        const drops = Array(Math.floor(c.width/16)).fill(1);
+        
         function draw() {
-            x.fillStyle="rgba(0,0,0,0.05)"; x.fillRect(0,0,c.width,c.height);
-            x.fillStyle="#0f0"; x.font="15px monospace";
-            drops.forEach((y,i)=>{
-                x.fillText(String.fromCharCode(0x30A0+Math.random()*96),i*16,y*16);
-                if(y*16>c.height&&Math.random()>0.98) drops[i]=0; drops[i]++;
+            x.fillStyle = "rgba(0,0,0,0.05)";
+            x.fillRect(0, 0, c.width, c.height);
+            x.fillStyle = "#0f0";
+            x.font = "15px monospace";
+            drops.forEach((y, i) => {
+                const text = String.fromCharCode(0x30A0 + Math.random() * 96);
+                x.fillText(text, i * 16, y * 16);
+                if (y * 16 > c.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
             });
         }
-        setInterval(draw,50);
+        setInterval(draw, 50);
+
+        // Tự động điều chỉnh kích thước canvas khi đổi kích cỡ cửa sổ
+        window.addEventListener('resize', () => {
+            c.width = window.innerWidth;
+            c.height = window.innerHeight;
+        });
     </script>
 </body>
 </html>
