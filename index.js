@@ -4,12 +4,13 @@ const path = require('path');
 
 let blockedCount = 0;
 
+// CHẶN NGAY LẬP TỨC TRƯỚC KHI SERVER SẬP
 app.use((req, res, next) => {
-    // Chặn đứng Chaos Engine V22 qua Header và Query
-    if (req.headers['x-payload-data'] || req.headers['user-agent']?.includes('Matrix-Breaker') || req.query.data) {
+    const isBot = req.headers['x-payload-data'] || req.headers['user-agent']?.includes('Matrix-Breaker');
+    if (isBot || req.query.data) {
         blockedCount++;
         res.setHeader('Connection', 'close');
-        return res.status(444).end();
+        return res.status(444).end(); 
     }
     next();
 });
@@ -20,8 +21,8 @@ app.get('/api/stats', (req, res) => {
     res.json({
         online: 1,
         blocked: blockedCount,
-        cpu: (Math.random() * 2).toFixed(1),
-        ram: 6
+        cpu: (Math.random() * 5 + 3).toFixed(1),
+        ram: 12
     });
 });
 
