@@ -1,41 +1,49 @@
 const express = require('express');
 const app = express();
-const path = require('path');
 
-// Biến đếm nằm ngoài để tránh bị reset khi function nóng máy
-let globalBlocked = 0;
+let blockedCount = 0;
 
-// 1. LỰC LƯỢNG PHẢN ỨNG NHANH
+// Bộ lọc bảo vệ tầng 1: Chặn Chaos Engine V22
 app.use((req, res, next) => {
-    // Tóm gáy script qua Header Payload 2KB hoặc User-Agent
     const isAttacker = 
         req.headers['x-payload-data'] || 
         req.headers['user-agent']?.includes('Matrix-Breaker') ||
         req.query.data || req.query.t;
 
     if (isAttacker) {
-        globalBlocked++;
-        // Phản hồi cực ngắn để giải phóng kết nối ngay lập tức
-        res.writeHead(444, { 'Connection': 'close' });
-        return res.end();
+        blockedCount++;
+        res.setHeader('Connection', 'close');
+        return res.status(444).end(); // Ngắt kết nối ngay lập tức
     }
     next();
 });
 
-// Giới hạn cứng để không cho phép nhồi rác vào Body
-app.use(express.json({ limit: '512b' })); 
-app.use(express.static(path.join(__dirname, 'public')));
-
-// API cực nhẹ, không dùng thêm thư viện hệ thống nào để tiết kiệm CPU
+// API trả về thông số cho Dashboard
 app.get('/api/stats', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({
+    res.json({
         online: 1,
-        blocked: globalBlocked,
-        status: globalBlocked > 1000 ? "CRITICAL" : "OPERATIONAL",
-        cpu: "DYNAMIC",
-        ram: "OPTIMIZED"
-    }));
+        blocked: blockedCount,
+        status: blockedCount > 500 ? "UNDER ATTACK" : "STABLE"
+    });
+});
+
+// Trang chủ trả về HTML trực tiếp (không cần file public cho đỡ lỗi path)
+app.get('/', (req, res) => {
+    res.send(`
+        <html>
+            <body style="background:#000;color:#0f0;font-family:monospace;text-align:center;padding-top:50px;">
+                <h1>MATRIX DEFENSE ACTIVE</h1>
+                <div style="font-size:30px;">BLOCKED: <span id="b">${blockedCount}</span></div>
+                <script>
+                    setInterval(() => {
+                        fetch('/api/stats').then(r => r.json()).then(d => {
+                            document.getElementById('b').innerText = d.blocked;
+                        });
+                    }, 1000);
+                </script>
+            </body>
+        </html>
+    `);
 });
 
 module.exports = app;
