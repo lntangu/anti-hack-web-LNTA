@@ -1,31 +1,64 @@
-<script>
-    let lastBlocked = 0;
-    function fetchRealData() {
-        fetch('/api/stats')
-        .then(res => res.json())
-        .then(data => {
-            document.getElementById('on').innerText = data.online;
-            document.getElementById('total-v').innerText = data.totalVisitors;
-            document.getElementById('myip').innerText = data.clientIP;
-            document.getElementById('cpu').innerText = data.cpu;
-            document.getElementById('ram').innerText = data.ram;
-            
-            const blockedElem = document.getElementById('blocked');
-            blockedElem.innerText = data.attackBlocked;
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>REAL-TIME ATTACK MONITOR</title>
+    <style>
+        body { background:#000; color:#0f0; font-family:monospace; margin:0; }
+        .container { padding: 20px; max-width: 800px; margin: auto; }
+        .box { border: 1px solid #0f0; padding: 15px; margin: 10px 0; background: rgba(0,20,0,0.5); }
+        .val { font-size: 30px; color: #fff; }
+        .warn { color: #f00; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 style="text-align:center">--- 100% REAL DATA SYSTEM ---</h2>
+        
+        <div class="box">
+            <div>NETWORK TRAFFIC (ONLINE)</div>
+            <div id="on" class="val">0</div>
+            <div>Unique Visitors: <span id="total">0</span></div>
+        </div>
 
-            // Nếu số vụ chặn tăng lên -> Nhấp nháy cảnh báo
-            if (data.attackBlocked > lastBlocked) {
-                document.body.style.backgroundColor = "#200";
-                setTimeout(() => document.body.style.backgroundColor = "#000", 100);
-                lastBlocked = data.attackBlocked;
-            }
+        <div class="box" style="border-color:#f00">
+            <div class="warn">FIREWALL INTERCEPTIONS</div>
+            <div id="blocked" class="val" style="color:#f00">0</div>
+            <div>Targeted IP: <span id="myip" style="color:#ff0">Detecting...</span></div>
+        </div>
 
-            if(data.logs.length > 0) {
-                document.getElementById('logs').innerHTML = data.logs.map(l => 
-                    `<div style="color:#f00; border-bottom:1px solid #300;">[${l.time}] ALERT: ${l.ip} - ${l.reason}</div>`
-                ).join('');
-            }
-        });
-    }
-    setInterval(fetchRealData, 1000); // Tăng tốc độ cập nhật lên 1s để theo kịp DDoS
-</script>
+        <div class="box">
+            <div>SERVER LOAD</div>
+            <div>CPU: <span id="cpu">0</span>% | RAM: <span id="ram">0</span>%</div>
+        </div>
+
+        <div class="box">
+            <div class="warn">LIVE THREAT LOGS</div>
+            <div id="logs" style="font-size:12px; height:80px; overflow:hidden;">Waiting for attack...</div>
+        </div>
+    </div>
+
+    <script>
+        function update() {
+            fetch('/api/stats')
+            .then(r => r.json())
+            .then(d => {
+                // Sử dụng toán tử && để tránh lỗi nếu phần tử chưa load
+                if(document.getElementById('on')) document.getElementById('on').innerText = d.online;
+                if(document.getElementById('total')) document.getElementById('total').innerText = d.total;
+                if(document.getElementById('blocked')) document.getElementById('blocked').innerText = d.blocked;
+                if(document.getElementById('myip')) document.getElementById('myip').innerText = d.ip;
+                if(document.getElementById('cpu')) document.getElementById('cpu').innerText = d.cpu;
+                if(document.getElementById('ram')) document.getElementById('ram').innerText = d.ram;
+                
+                if(d.logs.length > 0) {
+                    document.getElementById('logs').innerHTML = d.logs.map(l => 
+                        `<div style="color:#f44">[${l.time}] ${l.ip} -> ${l.reason}</div>`
+                    ).join('');
+                }
+            }).catch(e => console.log("System under heavy load..."));
+        }
+        setInterval(update, 1000);
+    </script>
+</body>
+</html>
