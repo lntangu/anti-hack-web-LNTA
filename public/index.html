@@ -1,64 +1,73 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>REAL-TIME ATTACK MONITOR</title>
+    <title>MATRIX OS | REAL ATTACK MONITOR</title>
     <style>
-        body { background:#000; color:#0f0; font-family:monospace; margin:0; }
-        .container { padding: 20px; max-width: 800px; margin: auto; }
-        .box { border: 1px solid #0f0; padding: 15px; margin: 10px 0; background: rgba(0,20,0,0.5); }
-        .val { font-size: 30px; color: #fff; }
-        .warn { color: #f00; font-weight: bold; }
+        body { background:#000; color:#0f0; font-family:monospace; margin:0; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
+        #dash { width:90%; max-width:900px; border:1px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); box-shadow:0 0 20px rgba(0,255,0,0.3); }
+        .grid { display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:20px; }
+        .card { border:1px solid #0f0; padding:15px; }
+        .big { font-size:40px; color:#fff; }
+        .red { color: #f00 !important; border-color: #f00 !important; }
+        #logs { font-size:12px; height:100px; overflow-y:auto; border-top:1px solid #333; margin-top:10px; padding-top:10px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2 style="text-align:center">--- 100% REAL DATA SYSTEM ---</h2>
-        
-        <div class="box">
-            <div>NETWORK TRAFFIC (ONLINE)</div>
-            <div id="on" class="val">0</div>
-            <div>Unique Visitors: <span id="total">0</span></div>
-        </div>
-
-        <div class="box" style="border-color:#f00">
-            <div class="warn">FIREWALL INTERCEPTIONS</div>
-            <div id="blocked" class="val" style="color:#f00">0</div>
-            <div>Targeted IP: <span id="myip" style="color:#ff0">Detecting...</span></div>
-        </div>
-
-        <div class="box">
-            <div>SERVER LOAD</div>
-            <div>CPU: <span id="cpu">0</span>% | RAM: <span id="ram">0</span>%</div>
-        </div>
-
-        <div class="box">
-            <div class="warn">LIVE THREAT LOGS</div>
-            <div id="logs" style="font-size:12px; height:80px; overflow:hidden;">Waiting for attack...</div>
+    <div id="dash">
+        <h2 style="text-align:center; letter-spacing:5px;">SYSTEM LIVE STATUS</h2>
+        <div class="grid">
+            <div class="card">
+                <div>REAL-TIME ONLINE</div>
+                <div class="big" id="on_val">0</div>
+                <div style="font-size:10px">Total Unique: <span id="total_val">0</span></div>
+            </div>
+            <div class="card red">
+                <div style="color:#f00">DDOS INTERCEPTED</div>
+                <div class="big" id="blocked_val">0</div>
+                <div style="font-size:10px">Target: <span id="my_ip_val" style="color:#ff0">Detecting...</span></div>
+            </div>
+            <div class="card">
+                <div>SERVER LOAD</div>
+                <div style="font-size:14px">CPU: <span id="cpu_val">0</span>%</div>
+                <div style="font-size:14px">RAM: <span id="ram_val">0</span>%</div>
+            </div>
+            <div class="card">
+                <div>THREAT LOGS</div>
+                <div id="logs">Waiting for packets...</div>
+            </div>
         </div>
     </div>
 
     <script>
         function update() {
             fetch('/api/stats')
-            .then(r => r.json())
+            .then(res => res.json())
             .then(d => {
-                // Sử dụng toán tử && để tránh lỗi nếu phần tử chưa load
-                if(document.getElementById('on')) document.getElementById('on').innerText = d.online;
-                if(document.getElementById('total')) document.getElementById('total').innerText = d.total;
-                if(document.getElementById('blocked')) document.getElementById('blocked').innerText = d.blocked;
-                if(document.getElementById('myip')) document.getElementById('myip').innerText = d.ip;
-                if(document.getElementById('cpu')) document.getElementById('cpu').innerText = d.cpu;
-                if(document.getElementById('ram')) document.getElementById('ram').innerText = d.ram;
+                // Kiểm tra kỹ ID trước khi gán để tránh lỗi "null"
+                const ids = {
+                    'on_val': d.online,
+                    'total_val': d.total,
+                    'blocked_val': d.blocked,
+                    'my_ip_val': d.ip,
+                    'cpu_val': d.cpu,
+                    'ram_val': d.ram
+                };
                 
-                if(d.logs.length > 0) {
+                for (let id in ids) {
+                    let el = document.getElementById(id);
+                    if(el) el.innerText = ids[id];
+                }
+
+                if(d.logs && d.logs.length > 0) {
                     document.getElementById('logs').innerHTML = d.logs.map(l => 
-                        `<div style="color:#f44">[${l.time}] ${l.ip} -> ${l.reason}</div>`
+                        `<div style="color:#f66">[${l.time}] ${l.ip} - ${l.type}</div>`
                     ).join('');
                 }
-            }).catch(e => console.log("System under heavy load..."));
+            })
+            .catch(e => console.log("Connection busy..."));
         }
-        setInterval(update, 1000);
+        setInterval(update, 1000); // Cập nhật 1s một lần để theo kịp tốc độ hack.py
     </script>
 </body>
 </html>
