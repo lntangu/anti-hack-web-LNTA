@@ -1,18 +1,6 @@
 {
-  "github": { "silent": true },
+  "version": 2,
   "rewrites": [
-    { "source": "/api/stats", "destination": "/api/stats" }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Content-Security-Policy", "value": "default-src 'self';" }
-      ]
-    }
-  ],
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "redirects": [],
-  "images": { "sizes": [256, 384] }
+    { "source": "/(.*)", "destination": "/api" }
+  ]
 }
