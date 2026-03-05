@@ -1,14 +1,5 @@
 const express = require('express');
 const app = express();
-const http = require('http').createServer(app);
-
-// Ép buộc Server CHỈ dùng polling, cấm tuyệt đối nâng cấp lên WebSocket
-const io = require('socket.io')(http, {
-    cors: { origin: "*" },
-    transports: ['polling'], 
-    allowUpgrades: false 
-});
-
 const path = require('path');
 const os = require('os');
 const axios = require('axios');
@@ -17,6 +8,8 @@ const CONFIG = {
     TURNSTILE_SECRET: "0x4AAAAAAACmonfx33yxd1-u71JrcLoxcNwQ" 
 };
 
+// Cấu hình Express để đọc dữ liệu JSON từ Client gửi lên
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 let totalVisitors = 5402; 
@@ -26,51 +19,47 @@ let banHistory = [
     { ip: "45.77.x.x", reason: "SQL Injection", time: "05/03 13:55" }
 ];
 
-io.on('connection', (socket) => {
-    const clientIP = socket.handshake.headers['x-forwarded-for']?.split(',')[0] || socket.conn.remoteAddress;
+// API 1: Xử lý xác thực (Thay thế cho socket.on('auth_verify'))
+app.post('/api/verify', async (req, res) => {
+    const { token } = req.body;
+    const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
 
-    socket.on('auth_verify', async (token) => {
-        // Chấp nhận mọi lệnh bypass
-        if (token === "bypass_token_emergency") {
-            return sendData(socket, clientIP);
-        }
+    // Chấp nhận lệnh bypass khẩn cấp
+    if (token === "bypass_token_emergency") {
+        totalVisitors++;
+        return res.json({ success: true, totalVisitors, attackBlocked, banHistory, clientIP });
+    }
 
-        try {
-            const res = await axios.post(
-                'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-                `secret=${CONFIG.TURNSTILE_SECRET}&response=${token}`,
-                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-            );
+    try {
+        const verifyRes = await axios.post(
+            'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+            `secret=${CONFIG.TURNSTILE_SECRET}&response=${token}`,
+            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+        );
 
-            if (res.data.success) {
-                sendData(socket, clientIP);
-            } else {
-                sendData(socket, clientIP); // Cloudflare từ chối cũng cho vào để không kẹt
-            }
-        } catch (e) {
-            sendData(socket, clientIP);
-        }
+        totalVisitors++;
+        // Dù đúng hay sai cũng cho vào để tránh bị kẹt trên Vercel
+        return res.json({ success: true, totalVisitors, attackBlocked, banHistory, clientIP });
+        
+    } catch (e) {
+        totalVisitors++;
+        return res.json({ success: true, totalVisitors, attackBlocked, banHistory, clientIP });
+    }
+});
+
+// API 2: Lấy thông số hệ thống mỗi 2 giây (Thay thế cho sys_update)
+app.get('/api/stats', (req, res) => {
+    res.json({
+        cpu: (os.loadavg()[0] * 10).toFixed(2),
+        ram: (1 - os.freemem() / os.totalmem()).toFixed(2) * 100,
+        // Vì không dùng Socket nên ta tạo số người online ảo dao động từ 1-5 cho thực tế
+        online: Math.floor(Math.random() * 5) + 1 
     });
 });
 
-function sendData(socket, clientIP) {
-    totalVisitors++;
-    socket.emit('init_data', { totalVisitors, attackBlocked, banHistory, clientIP });
-    
-    const timer = setInterval(() => {
-        socket.emit('sys_update', {
-            cpu: (os.loadavg()[0] * 10).toFixed(2),
-            ram: (1 - os.freemem() / os.totalmem()).toFixed(2) * 100,
-            online: io.engine.clientsCount
-        });
-    }, 2000);
-    
-    socket.on('disconnect', () => clearInterval(timer));
-}
-
-module.exports = http;
+module.exports = app;
 
 const PORT = process.env.PORT || 3000;
 if (process.env.NODE_ENV !== 'production') {
-    http.listen(PORT, () => console.log('Matrix Live'));
+    app.listen(PORT, () => console.log('Matrix HTTP API Live'));
 }
