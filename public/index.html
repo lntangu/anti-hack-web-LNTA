@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>MATRIX OS | SECURE MONITOR</title>
-    <script src="/socket.io/socket.io.js"></script>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <style>
         body { background:#000; color:#0f0; font-family:monospace; margin:0; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
@@ -36,40 +35,61 @@
     </div>
 
     <script>
-        // Ép buộc Client cấm dùng WebSocket, chỉ dùng polling để tránh Vercel block
-        const socket = io({ transports: ['polling'], upgrade: false });
         let authDone = false;
+        let statsInterval;
 
+        // Hàm gọi API Verify
         function onVerify(token) {
             if(authDone) return;
             authDone = true;
-            document.getElementById('msg').innerText = "Access Granted...";
-            socket.emit('auth_verify', token);
+            document.getElementById('msg').innerText = "Authenticating via API...";
+            
+            fetch('/api/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: token })
+            })
+            .then(res => res.json())
+            .then(d => {
+                if(d.success) {
+                    document.getElementById('auth-box').style.display = 'none';
+                    document.getElementById('dash').style.display = 'block';
+                    document.getElementById('total-v').innerText = d.totalVisitors;
+                    document.getElementById('blocked').innerText = d.attackBlocked;
+                    document.getElementById('myip').innerText = d.clientIP;
+                    document.getElementById('logs').innerHTML = d.banHistory.map(b => `<div>[${b.time}] BLOCKED: ${b.ip}</div>`).join('');
+                    
+                    // Bắt đầu gọi API lấy thông số mỗi 2 giây
+                    statsInterval = setInterval(fetchStats, 2000);
+                    fetchStats(); // Gọi ngay lập tức lần đầu
+                }
+            })
+            .catch(err => {
+                document.getElementById('msg').innerText = "Network Error. Retrying...";
+                authDone = false; // Cho phép thử lại
+            });
+        }
+
+        // Hàm gọi API lấy CPU/RAM
+        function fetchStats() {
+            fetch('/api/stats')
+            .then(res => res.json())
+            .then(s => {
+                document.getElementById('on').innerText = s.online;
+                document.getElementById('cpu').innerText = s.cpu;
+                document.getElementById('ram').innerText = s.ram;
+            });
         }
 
         // Tự động bỏ qua Cloudflare sau 3.5 giây nếu bị lỗi
         setTimeout(() => {
             if (!authDone) {
-                document.getElementById('msg').innerText = "Cloudflare Error. Emergency Override...";
+                document.getElementById('msg').innerText = "Cloudflare Error. Emergency HTTP Override...";
                 onVerify("bypass_token_emergency");
             }
         }, 3500);
 
-        socket.on('init_data', (d) => {
-            document.getElementById('auth-box').style.display = 'none';
-            document.getElementById('dash').style.display = 'block';
-            document.getElementById('total-v').innerText = d.totalVisitors;
-            document.getElementById('blocked').innerText = d.attackBlocked;
-            document.getElementById('myip').innerText = d.clientIP;
-            document.getElementById('logs').innerHTML = d.banHistory.map(b => `<div>[${b.time}] BLOCKED: ${b.ip}</div>`).join('');
-        });
-
-        socket.on('sys_update', (s) => {
-            document.getElementById('on').innerText = s.online;
-            document.getElementById('cpu').innerText = s.cpu;
-            document.getElementById('ram').innerText = s.ram;
-        });
-
+        // Hiệu ứng nền Matrix
         const c=document.getElementById('bg'); const x=c.getContext('2d');
         c.width=window.innerWidth; c.height=window.innerHeight;
         const drops=Array(Math.floor(c.width/16)).fill(1);
