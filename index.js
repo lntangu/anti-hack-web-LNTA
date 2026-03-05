@@ -6,37 +6,39 @@ const os = require('os');
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-let totalVisitors = 5403; // Giữ lại số liệu từ ảnh
-let attackBlocked = 1284;
+// DỮ LIỆU THẬT - BẮT ĐẦU TỪ 0
+let totalVisitors = 0; 
+let attackBlocked = 0;
 let activeUsers = new Map();
-let threatLogs = [
-    { ip: "103.21.x.x", reason: "DDoS Attempt", time: "14:10" },
-    { ip: "45.77.x.x", reason: "SQL Injection", time: "13:55" }
-];
+let realThreatLogs = []; 
 
 app.get('/api/stats', (req, res) => {
+    // Lấy IP thật của người truy cập
     const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
     const now = Date.now();
     
-    // Ghi nhận IP đang truy cập
+    // Đếm tổng số lượt truy cập thật (chỉ đếm khi IP mới xuất hiện)
     if (!activeUsers.has(clientIP)) {
         totalVisitors++;
     }
+    
+    // Ghi nhận sự hiện diện
     activeUsers.set(clientIP, now);
 
-    // Xoá IP offline sau 10s
+    // Tự động dọn dẹp người offline sau 10 giây
     for (let [ip, lastSeen] of activeUsers) {
         if (now - lastSeen > 10000) activeUsers.delete(ip);
     }
 
+    // Gửi dữ liệu thật về trình duyệt
     res.json({
         cpu: (os.loadavg()[0] * 10).toFixed(2),
         ram: (1 - os.freemem() / os.totalmem()).toFixed(2) * 100,
         online: activeUsers.size,
-        totalVisitors,
-        attackBlocked,
-        clientIP,
-        logs: threatLogs
+        totalVisitors: totalVisitors,
+        attackBlocked: attackBlocked,
+        clientIP: clientIP,
+        logs: realThreatLogs // Hiện tại sẽ trống vì chưa có ai tấn công thật
     });
 });
 
