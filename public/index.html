@@ -2,70 +2,87 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>MATRIX V16.4 | SECURE</title>
+    <title>MATRIX OS | SECURE MONITOR</title>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <style>
-        body { background:#000; color:#0f0; font-family:monospace; margin:0; overflow:hidden; }
-        #matrix { position:fixed; top:0; left:0; z-index:-1; opacity:0.3; }
-        .container { max-width:800px; margin:20px auto; border:1px solid #0f0; background:rgba(0,10,0,0.9); display: flex; flex-direction: column; height: 95vh; }
-        #chat-box { flex: 1; overflow-y:auto; padding:20px; display:flex; flex-direction:column-reverse; }
-        .input-area { padding:15px; border-top:1px solid #0f0; display:flex; gap:10px; }
-        input { flex:1; background:#000; color:#0f0; border:1px solid #0f0; padding:10px; outline:none; }
-        button { background:#0f0; color:#000; border:none; padding:0 20px; cursor:pointer; font-weight:bold; }
+        body { background:#000; color:#0f0; font-family:monospace; margin:0; overflow:hidden; display:flex; justify-content:center; align-items:center; height:100vh; }
+        #bg { position:fixed; top:0; left:0; z-index:-1; opacity:0.15; }
+        #auth-box { border:1px solid #0f0; padding:40px; background:rgba(0,20,0,0.9); text-align:center; box-shadow:0 0 20px #0f0; }
+        #dash { display:none; width:90%; max-width:1000px; }
+        .grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:20px; }
+        .card { border:1px solid #0f0; padding:20px; background:rgba(0,10,0,0.9); position:relative; }
+        .card::before { content:""; position:absolute; top:0; left:0; width:10px; height:10px; border-top:2px solid #0f0; border-left:2px solid #0f0; }
+        .big { font-size:45px; color:#fff; text-shadow:0 0 10px #0f0; }
+        .label { font-size:12px; letter-spacing:2px; color:#0f0; margin-bottom:10px; }
+        .logs { font-size:11px; color:#f00; height:100px; overflow:hidden; }
     </style>
 </head>
 <body>
-    <canvas id="matrix"></canvas>
-    <div class="container">
-        <div style="padding:10px; border-bottom:1px solid #0f0; font-size:12px; display:flex; justify-content:space-between;">
-            <span>V16.4 SECURE SYSTEM</span>
-            <span>CPU:<span id="cpu">0</span>% | RAM:<span id="ram">0</span>GB | ONLINE:<span id="on">0</span></span>
-        </div>
-        <div id="chat-box"></div>
-        <div class="input-area">
-            <input type="text" id="m" placeholder="Message or /cmd pass..." maxlength="150">
-            <button id="b">SEND</button>
+    <canvas id="bg"></canvas>
+
+    <div id="auth-box">
+        <h2 style="letter-spacing:10px;">SECURITY CHECK</h2>
+        <p>Bypassing Firewall...</p>
+        <div class="cf-turnstile" data-sitekey="0x4AAAAAAACmonQdRh5QQd00p" data-callback="onVerify"></div>
+    </div>
+
+    <div id="dash">
+        <h1 style="text-align:center; letter-spacing:15px; margin-bottom:40px;">MATRIX SYSTEMS MONITOR</h1>
+        <div class="grid">
+            <div class="card">
+                <div class="label">Traffic Analytics</div>
+                <div class="big" id="on">0</div>
+                <div>Online / <span id="total-v">0</span> Total Visitors</div>
+            </div>
+            <div class="card" style="border-color:#f00;">
+                <div class="label" style="color:#f00;">Firewall Status</div>
+                <div class="big" id="blocked" style="color:#f00;">0</div>
+                <div>Attacks Blocked | IP: <span id="myip" style="color:#ff0"></span></div>
+            </div>
+            <div class="card">
+                <div class="label">Server Hardware</div>
+                <div>CPU Load: <span id="cpu">0</span>%</div>
+                <div>RAM Load: <span id="ram">0</span>%</div>
+            </div>
+            <div class="card">
+                <div class="label">Recent Threats</div>
+                <div id="logs" class="logs"></div>
+            </div>
         </div>
     </div>
+
     <script>
         const socket = io();
-        const chat = document.getElementById('chat-box');
-        
-        socket.on('sync_chat', (data) => {
-            chat.innerHTML = data.map(m => `
-                <div style="margin-bottom:10px;">
-                    <span style="color:#555; font-size:10px;">${m.name} [${m.time}]:</span><br>
-                    <span style="color:${m.name==='SYSTEM'?'#ff0':'#0f0'}; border:1px solid #111; padding:4px; display:inline-block;">${m.text}</span>
-                </div>
-            `).join('');
+        function onVerify(token) { socket.emit('auth_verify', token); }
+
+        socket.on('init_data', (d) => {
+            document.getElementById('auth-box').style.display = 'none';
+            document.getElementById('dash').style.display = 'block';
+            document.getElementById('total-v').innerText = d.totalVisitors;
+            document.getElementById('blocked').innerText = d.attackBlocked;
+            document.getElementById('myip').innerText = d.clientIP;
+            document.getElementById('logs').innerHTML = d.banHistory.map(b => `<div>[${b.time}] BLOCKED: ${b.ip}</div>`).join('');
         });
 
-        socket.on('sys_stats', (s) => {
+        socket.on('sys_update', (s) => {
+            document.getElementById('on').innerText = s.online;
             document.getElementById('cpu').innerText = s.cpu;
             document.getElementById('ram').innerText = s.ram;
-            document.getElementById('on').innerText = s.online;
         });
 
-        function send() {
-            const i = document.getElementById('m');
-            if(i.value) { socket.emit('chat message', {name: localStorage.getItem('nick')||'User', msg: i.value}); i.value=''; }
-        }
-        document.getElementById('b').onclick = send;
-        document.getElementById('m').onkeypress = (e) => e.key==='Enter'&&send();
-
-        // Matrix Effect
-        const c = document.getElementById('matrix'); const x = c.getContext('2d');
-        c.width = window.innerWidth; c.height = window.innerHeight;
-        const d = Array(Math.floor(c.width/16)).fill(1);
+        const c=document.getElementById('bg'); const x=c.getContext('2d');
+        c.width=window.innerWidth; c.height=window.innerHeight;
+        const drops=Array(Math.floor(c.width/16)).fill(1);
         function draw() {
-            x.fillStyle = "rgba(0,0,0,0.05)"; x.fillRect(0,0,c.width,c.height);
-            x.fillStyle = "#0f0"; x.font = "16px monospace";
-            d.forEach((y, i) => {
-                x.fillText(String.fromCharCode(0x30A0 + Math.random()*96), i*16, y*16);
-                if(y*16 > c.height && Math.random() > 0.975) d[i]=0; d[i]++;
+            x.fillStyle="rgba(0,0,0,0.05)"; x.fillRect(0,0,c.width,c.height);
+            x.fillStyle="#0f0"; x.font="15px monospace";
+            drops.forEach((y,i)=>{
+                x.fillText(String.fromCharCode(0x30A0+Math.random()*96),i*16,y*16);
+                if(y*16>c.height&&Math.random()>0.98) drops[i]=0; drops[i]++;
             });
         }
-        setInterval(draw, 50);
+        setInterval(draw,50);
     </script>
 </body>
 </html>
