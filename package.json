@@ -2,6 +2,7 @@
   "name": "anti-hack-web",
   "version": "1.0.0",
   "dependencies": {
+    "@vercel/analytics": "^1.6.1",
     "express": "^4.18.2"
   }
 }
