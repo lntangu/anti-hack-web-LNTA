@@ -1,82 +1,67 @@
 const express = require('express');
 const app = express();
 
-// Cấu hình lõi bảo mật
 const defenseGrid = {
     jail: new Set(),
     stats: { totalBlocks: 0 },
     config: { 
-        // 1. IP WHITELIST (Thêm IP của ngài vào đây)
         whitelist: ["::1", "127.0.0.1", "172.17.96.1", "fe80::fdb8:ef32:9ff0"], 
-        // 2. GIỚI HẠN HEADER (700 byte là ngưỡng an toàn tuyệt đối cho RAM 2GB)
-        maxHeaderLimit: 700 
+        maxHeaderLimit: 750 // Ngưỡng an toàn chống lỗi 500
     }
 };
 
-// --- [ LỚP GIÁP ĐÁNH CHẶN SỚM - CHỐNG LỖI 500 ] ---
+// --- [ LỚP GIÁP BẢO VỆ ] ---
 app.use((req, res, next) => {
     try {
-        // Lấy IP thật từ hạ tầng Vercel
         const realIP = req.headers['x-vercel-forwarded-for'] || req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
 
-        // Ưu tiên người nhà
         if (defenseGrid.config.whitelist.includes(realIP)) return next();
 
-        // KIỂM TRA NHANH KHÔNG TỐN RAM (Raw Check)
         const rawHeaderSize = req.rawHeaders.join('').length;
         const ua = req.headers['user-agent'] || "";
 
-        // Nhận diện dấu vân tay bot "Matrix-Breaker" hoặc payload nặng
+        // Kiểm tra bot bằng Header rác hoặc User-Agent
         if (defenseGrid.jail.has(realIP) || rawHeaderSize > defenseGrid.config.maxHeaderLimit || ua.includes("Matrix-Breaker")) {
-            if (!defenseGrid.jail.has(realIP)) defenseGrid.jail.add(realIP);
+            defenseGrid.jail.add(realIP);
             defenseGrid.stats.totalBlocks++;
 
-            // [CHIẾN THUẬT FAKE SUCCESS]
-            // Trả về 200 OK nhưng 0 byte dữ liệu để bot báo "Lọt" mà RAM server vẫn xanh
-            res.writeHead(200, { 
-                'Content-Type': 'text/plain',
-                'Content-Length': '0',
-                'Connection': 'close' 
-            });
+            // TRẢ VỀ FAKE SUCCESS (200 OK) ĐỂ BOT KHÔNG BÁO LỖI
+            res.writeHead(200, { 'Content-Length': '0', 'Connection': 'close' });
             return res.end();
         }
-
         next();
     } catch (err) {
-        // Bọc toàn bộ trong try-catch để ngăn lỗi unhandled làm sập function
-        console.error("Shield Guard Error:", err);
         res.writeHead(200).end(); 
     }
 });
 
-// --- [ GIAO DIỆN ĐIỀU KHIỂN & THỐNG KÊ ] ---
-app.get('/api/stats', (req, res) => {
-    res.json({ blocked: defenseGrid.stats.totalBlocks });
-});
-
+// --- [ GIAO DIỆN RADAR CHÍNH CHỦ ] ---
 app.get('/', (req, res) => {
     res.send(`
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PHANTOM CORE V14.2</title>
+    <title>PHANTOM CORE V15</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron&display=swap');
         body { margin: 0; background: #000; color: #00f3ff; font-family: 'Orbitron', sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .hud { border: 2px solid #00f3ff; background: rgba(0,0,0,0.9); padding: 50px; text-align: center; box-shadow: 0 0 30px #00f3ff; border-radius: 10px; }
-        .radar { width: 80px; height: 80px; border: 2px solid #00f3ff; border-radius: 50%; margin: 0 auto 20px; position: relative; overflow: hidden; }
-        .sweep { position: absolute; width: 100%; height: 100%; background: conic-gradient(from 0deg, rgba(0,243,255,0.3) 0%, transparent 40%); animation: sweep 2s linear infinite; }
+        .grid { position: fixed; width: 200%; height: 200%; background-image: linear-gradient(rgba(0,243,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,243,255,0.05) 1px, transparent 1px); background-size: 50px 50px; transform: perspective(500px) rotateX(60deg); animation: move 10s linear infinite; z-index: -1; }
+        @keyframes move { from { background-position: 0 0; } to { background-position: 0 50px; } }
+        .hud { border: 2px solid #00f3ff; background: rgba(0,0,0,0.9); padding: 50px; box-shadow: 0 0 30px #00f3ff; text-align: center; border-radius: 5px; }
+        .radar { width: 100px; height: 100px; border: 2px solid #00f3ff; border-radius: 50%; margin: 0 auto 20px; position: relative; overflow: hidden; }
+        .sweep { position: absolute; width: 100%; height: 100%; background: conic-gradient(from 0deg, rgba(0,243,255,0.4) 0%, transparent 40%); animation: sweep 2s linear infinite; }
         @keyframes sweep { to { transform: rotate(360deg); } }
-        .counter { font-size: 48px; color: #ff0055; text-shadow: 0 0 15px #ff0055; margin: 10px 0; }
-        .status { font-size: 12px; color: #00ff00; letter-spacing: 2px; }
+        .stat-count { font-size: 40px; color: #ff0055; text-shadow: 0 0 15px #ff0055; margin: 10px 0; }
+        .status-text { font-size: 12px; color: #00ff00; letter-spacing: 3px; }
     </style>
 </head>
 <body>
+    <div class="grid"></div>
     <div class="hud">
         <div class="radar"><div class="sweep"></div></div>
-        <div class="status">SYSTEM STABILIZED</div>
-        <div class="counter" id="blockCount">${defenseGrid.stats.totalBlocks}</div>
-        <div style="font-size: 10px; opacity: 0.7;">[ FLUID COMPUTE 2GB RAM OPTIMIZED ]</div>
+        <div class="status-text">SYSTEM STABILIZED</div>
+        <div class="stat-count" id="blockCount">${defenseGrid.stats.totalBlocks}</div>
+        <p style="font-size: 10px; opacity: 0.6;">[ GHOST PROTOCOL ACTIVE ]</p>
     </div>
     <script>
         setInterval(async () => {
@@ -91,5 +76,7 @@ app.get('/', (req, res) => {
 </html>
     `);
 });
+
+app.get('/api/stats', (req, res) => res.json({ blocked: defenseGrid.stats.totalBlocks }));
 
 module.exports = app;
