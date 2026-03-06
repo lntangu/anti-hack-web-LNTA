@@ -1,9 +1,32 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "index.js", "use": "@vercel/node" }
+  "public": false,
+  "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "geolocation=(), microphone=()"
+        }
+      ]
+    }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "index.js" }
-  ]
+    {
+      "source": "/api/stats",
+      "destination": "/index.js"
+    }
+  ],
+  "functions": {
+    "api/*.js": {
+      "memory": 1024,
+      "maxDuration": 5
+    }
+  }
 }
