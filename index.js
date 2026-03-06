@@ -35,7 +35,24 @@ app.use((req, res, next) => {
 
 // ... (Các Route giao diện của ngài để ở dưới này)
 app.get('/', (req, res) => {
-    res.send("Hệ thống đã được bọc thép!");
+    res.send(`
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anti-Hack Web System</title>
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+    <h1>Hệ thống đã được bọc thép!</h1>
+    <p>Vercel Web Analytics is now active and tracking page views.</p>
+</body>
+</html>
+    `);
 });
 
 module.exports = app;
